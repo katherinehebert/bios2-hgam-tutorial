@@ -1,0 +1,681 @@
+---
+title: "Introduction to Hierarchical Generalized Additive Models"
+description: |
+  This course is designed to demystify hierarchical modelling as powerful tools to model population dynamics, spatial distributions, and any non-linear relationships in your ecological data. The training will be divided into two blocks. First, we will cover hierarchies in biology, data, and in models to understand what hierarchical models are, some of the forms they can take, and the fundamentals of how they work. Second, we will introduce latent variable modelling as a way to explain even more of the variation in our response variables, to better disentangle the hierarchies of variation in our data. Both blocks will include a theoretical presentation followed by hands-on coding exercises to implement and interpret hierarchical GAMs.
+author:
+  - name: "Camille Lévesque"
+    affiliation: Université de Sherbrooke
+  - name: "Katherine Hébert"
+    affiliation: McGill University
+categories: [Technical, EN]
+date: "03-03-2025"
+image: image.jpg
+toc: true
+number-sections: true
+number-depth: 1
+theme: lux
+---
+
+# Overview
+
+This course is designed to demystify hierarchical modelling as powerful tools to model population dynamics, spatial distributions, and any non-linear relationships in your ecological data. The training will be divided into two blocks.
+
+1.  First, we will cover hierarchies in biology, data, and in models to understand what hierarchical models are, some of the forms they can take, and the fundamentals of how they work.
+
+2.  Second, we will introduce latent variable modelling as a way to explain even more of the variation in our response variables, to better disentangle the hierarchies of variation in our data.
+
+Both blocks will include a theoretical presentation followed by hands-on coding exercises to implement and interpret hierarchical GAMs.
+
+This workshop was developed with support from the [NSERC CREATE Computational Biodiversity Science and Services (BIOS²)](https://bios2.usherbrooke.ca/) training program.
+
+## Credits
+
+This workshop is based on Nicholas J. Clark's Physalia course "Ecological forecasting with `mvgam` and `brms`". It was reworked by Katherine Hébert and Camille Lévesque into this short tutorial (mainly in Part 2), but we recommend having a look at the original for a more in-depth look at the methods we are covering today:
+
+> Clark, N. J. (2024). "Ecological forecasting with `mvgam` and `brms`". Physalia. Retrieved from <https://nicholasjclark.github.io/physalia-forecasting-course/>.
+
+## Learning outcomes
+
+1.  Understand how a hierarchical model works, and how it can be used to capture nonlinear effects
+
+2.  Understand dynamic modelling, and how latent variables can be used to capture dynamic processes like temporal or spatial autocorrelation
+
+3.  Use the R packages `mgcv` and `mvgam` packages to build and fit hierarchical models
+
+4.  Understand how to visualize and interpret hierarchical models with these packages
+
+## Requirements
+
+#### Familiarity with Generalized Additive Modelling
+
+We recommend previous experience with GAMs before taking this training. If you would like to follow an introduction to GAMs before this workshop, please have a look at Eric Pedersen’s [Introduction to GAMs](https://bios2.usherbrooke.ca/2021/10/20/workshop-gams-2021/) and/or the Québec Centre for Biodiversity Science’s [Workshop 8: GAMs](http://r.qcbs.ca/workshop08/book-en/).
+
+#### Familiarity with Bayesian 
+
+#### R & RStudio
+
+The workshop assumes basic familiarity with R/RStudio. To be able to follow along with the practical exercises on your own computer, in addition to downloading the data files above, you will need to do the following:
+
+Install the latest version of R for your operating system: <https://cran.r-project.org/>. Install the latest version of RStudio for your operating system: <https://www.rstudio.com/products/rstudio/download/>
+
+#### R packages
+
+Install and load the packages that we will use during the workshop by executing the following code in R version 4.2.0:
+
+```{r, eval = T, message = FALSE}
+# install packages from CRAN
+
+# install.packages(pkgs = c("dplyr", "tidyr", mvgam", "mgcv", "gratia", "marginaleffects", "corrplot", "ggplot2"), dependencies = TRUE)
+library("dplyr")
+library("tidyr")
+library("mvgam")
+library("mgcv")
+library("gratia")
+library("marginaleffects")
+library("corrplot")
+library("ggplot2")
+
+# set all ggplots to this theme
+theme_set(theme_minimal())
+```
+
+### Stan
+
+Please note that for Block 2, we will be fitting models using `Stan`. `Stan` must be installed (along with either `rstan` and/or `cmdstanr`). Please refer to installation links for `Stan` with `cmdstandr` [here](https://mc-stan.org/cmdstanr/) (or with `rstan` [here](https://mc-stan.org/users/interfaces/rstan)).
+
+------------------------------------------------------------------------
+
+# Workshop materials
+
+## About the data set
+
+In this workshop, we will be analyzing time series of plankton counts (cells per mL) taken from Lake Washington in Washington, USA during a long-term monitoring study. The data are available in the `MARSS` package, and are described and analyse in greater detail in this publication:
+
+> Hampton Stephanie E. , Scheuerell Mark D. , Schindler Daniel E. , (2006), Coalescence in the Lake Washington story: Interaction strengths in a planktonic food web, *Limnology and Oceanography*, 51, doi: [10.4319/lo.2006.51.5.2042](https://aslopubs.onlinelibrary.wiley.com/doi/abs/10.4319/lo.2006.51.5.2042).
+
+Some information about the data, from the `MARSS` package documentation ([link](https://atsa-es.github.io/MARSS/reference/plankton.html)):
+
+> The `lakeWAplankton` data set consists for two data sets: `lakeWAplanktonRaw` and a dataset derived from the raw dataset, `lakeWAplanktonTrans`. `lakeWAplanktonRaw` is a **32-year time series (1962-1994)** **of monthly plankton counts** from Lake Washington, Washington, USA. Columns 1 and 2 are year and month. Column 3 is temperature (C), column 4 is total phosphorous, and column 5 is pH. The next columns are the plankton counts in units of cells per mL for the phytoplankton and organisms per L for the zooplankton.
+>
+> `lakeWAplanktonTrans` is a transformed version of `lakeWAplanktonRaw`. Zeros have been replaced with NAs (missing). The logged (natural log) raw plankton counts have been standardized to a mean of zero and variance of 1 (so logged and then z-scored). Temperature, TP & pH were also z-scored but not logged (so z-score of the untransformed values for these covariates). The single missing temperature value was replaced with -1 and the single missing TP value was replaced with -0.3.
+
+[![](https://upload.wikimedia.org/wikipedia/commons/e/ec/Lake_Washington_region.png){fig-align="center"}](https://www.google.com/url?sa=i&url=https%3A%2F%2Fcommons.wikimedia.org%2Fwiki%2FFile%3ALake_Washington_region.png&psig=AOvVaw3-T1CwR0iIWfiMD1B0WiFK&ust=1740498251184000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCKjh87LT3IsDFQAAAAAdAAAAABAJ)
+
+The data download and preparation steps are identical to the [steps in Nicholas J. Clark's Physalia course](https://nicholasjclark.github.io/physalia-forecasting-course/day4/tutorial_4_physalia#Lake_Washington_plankton_data).
+
+### Data download
+
+Load the dataset:
+
+```{r}
+load(url('https://github.com/atsa-es/MARSS/raw/master/data/lakeWAplankton.rda'))
+```
+
+### Prepare the data
+
+First, the data needs to be prepared into a long format (i.e., one observation per row). In Part 2, the `mvgam` package will require specific column names, so we will prepare the data to match the package's requirements.
+
+```{r}
+## Prepare the time series data for analysis 
+
+# This code is from https://nicholasjclark.github.io/physalia-forecasting-course/day4/tutorial_4_physalia
+
+# We will work with five different groups of plankton:
+outcomes <- c('Greens', 'Bluegreens', 'Diatoms', 'Unicells', 'Other.algae')
+
+plankton_data <- xfun::cache_rds(do.call(rbind, lapply(outcomes, function(x){
+  
+  # create a group-specific dataframe with counts labelled 'y'
+  # and the group name in the 'series' variable
+  data.frame(year = lakeWAplanktonTrans[, 'Year'],
+             month = lakeWAplanktonTrans[, 'Month'],
+             y = lakeWAplanktonTrans[, x],
+             series = x,
+             temp = lakeWAplanktonTrans[, 'Temp'])})) %>%
+  
+  # change the 'series' label to a factor
+  dplyr::mutate(series = factor(series)) %>%
+  
+  # filter to only include some years in the data
+  dplyr::filter(year >= 1965 & year < 1975) %>%
+  dplyr::arrange(year, month) %>%
+  dplyr::group_by(series) %>%
+  
+  # z-score the counts so they are approximately standard normal
+  dplyr::mutate(y = as.vector(scale(y))) %>%
+  
+  # add the time indicator
+  dplyr::mutate(time = dplyr::row_number()) %>%
+  dplyr::ungroup())
+
+# loop across each plankton group to create the long datframe
+plankton_data <- do.call(rbind, lapply(outcomes, function(x){
+  
+  # create a group-specific dataframe with counts labelled 'y'
+  # and the group name in the 'series' variable
+  data.frame(year = lakeWAplanktonTrans[, 'Year'],
+             month = lakeWAplanktonTrans[, 'Month'],
+             y = lakeWAplanktonTrans[, x],
+             series = x,
+             temp = lakeWAplanktonTrans[, 'Temp'])})) %>%
+  
+  # change the 'series' label to a factor
+  dplyr::mutate(series = factor(series)) %>%
+  
+  # filter to only include some years in the data
+  dplyr::filter(year >= 1965 & year < 1975) %>%
+  dplyr::arrange(year, month) %>%
+  dplyr::group_by(series) %>%
+  
+  # z-score the counts so they are approximately standard normal
+  dplyr::mutate(y = as.vector(scale(y))) %>%
+  
+  # add the time index
+  dplyr::mutate(time = dplyr::row_number()) %>%
+  dplyr::ungroup()
+```
+
+```{r, echo = F}
+saveRDS(plankton_data, here::here("saved-objects/plankton-data.rds"))
+```
+
+Let's have a look at the data's structure:
+
+```{r}
+head(plankton_data)
+```
+
+Let's also plot the data to get a first look at the time series:
+
+```{r}
+ggplot(data = plankton_data, aes(x = time)) +
+  geom_line(aes(y = temp), col = "black") + # Temperature in black
+  geom_line(aes(y = y, col = series), lwd = .4) + # Taxa counts in color
+  labs(x = "Time", y = "Abundance (z-score)\n(Temperature z-score in black)", col = "Group")
+```
+
+------------------------------------------------------------------------
+
+## Part 1: Hierarchical Generalized Additive Models (HGAMs)
+
+Diatoms data set. \*I want to illustrate nonlinearity for juste one series.
+
+```{r}
+# subset
+diatoms_data <- plankton_data[plankton_data$series == "Diatoms", ]
+```
+
+Data points.
+
+```{r}
+ggplot(diatoms_data, aes(x = time, y = y)) +
+  geom_point() +
+  geom_line(aes(y = y), lwd = .4) +
+  labs(title = "Diatoms Data Points", x = "Year", y = "Y Value") +
+  theme_minimal()
+```
+
+Linear model
+
+```{r}
+diatoms_lm <- lm(y ~ time, data = diatoms_data)
+
+
+ggplot(diatoms_data, aes(x = time, y = y)) +
+  geom_point(color = "black") +  # Scatter points
+  geom_smooth(method = "lm", color = "blue1", fill = "lightgray", se = TRUE) +  # Regression line
+  labs(title = "Diatoms Data with Linear Regression Line",
+       x = "Time",
+       y = "Y Value") +
+  theme_minimal()
+```
+
+GAM
+
+```{r}
+# model
+diatoms_gam <- gam(y ~ s(time, bs = "cs", k = 50), data = diatoms_data)
+
+# graph
+gratia::draw(diatoms_gam)
+
+```
+
+```{r}
+
+
+
+```
+
+
+
+# Block 2 - Digging deeper with Dynamic (and Hierarchical!) Generalized Additive Models
+
+Above, we modelled how plankton counts fluctuated through time with a hierarchical structure to understand how different groups vary through time. We noticed a strong seasonal pattern in these fluctuations.
+
+Before we continue, let's "zoom out" a little and think about how our model relates to ecology. Our model is saying that plankton abundances generally follow the seasonal fluctuations in temperature in Lake Washington, and that differently plankton groups fluctuate a bit differently. All we have to explain these fluctuations through time is (1) time itself, (2) plankton groups, and (3) temperature through time.
+
+Are there other factors that could explain why plankton groups vary through time during this period? Yes, absolutely! There are unmeasured environmental factors that play some role here - for example, water chemistry - as well as some variations due to the process of measuring these plankton counts through time (i.e., measurement variability or observation error). These factors all leave an "imprint" in the time series we have here. And most importantly, these factors **vary through time** - they are themselves time series with their own temporal patterns.
+
+**But, do we have any measured predictors to add to the model to capture the influence of these factors?** Unfortunately, as is often the case in ecological studies, we do not have measurements of these predictors through time.
+
+There are three important things to think about here:
+
+1.  There are **unmeasured predictors** that influence the trend we measured and are now modelling. The signature of these unmeasured processes is in the data, but we cannot capture it with the previous model because we did not include these predictors. This is called **"latent variation"**;
+
+2.  Each species responds to these unmeasured predictors in their own way. (This is where the **"hierarchical"** bit comes in!)
+
+3.  These processes are not static - they are **dynamic**. Like our response variable, these unmeasured predictors **vary through time**.
+
+### Pause: Let's talk *latents*
+
+You may have noticed that we slipped a new term into the previous section: "latent variation". The definition of "latent" in the Merriam-Webster dictionary is:
+
+> Present and capable of emerging or developing but not now visible, obvious, active, or symptomatic.
+>
+> OR
+>
+> a fingerprint (as at the scene of a crime) that is scarcely visible but can be developed for study
+
+It can be helpful to use this definition to conceptualise latent variation in our data. As we said above, there are "imprints" of factors that we didn't measure on the time series we are modelling. These signals are present and influence the trends we estimate, but are "scarcely visible" because we lack information to detect them.
+
+In statistical models, latent variables are essentially random predictors that are generated during the modelling process to capture correlated variations between multiple responses (species, for example). The idea is that a bunch of these latent variables are randomly generated, and they are penalized until the model only retains a minimal set of latent variables that capture the main axes of covariation between responses. (Here, it can be useful to think of how a PCA reduces the dimensions of a dataset to a minimum of informative "axes"). Each species is then assigned a "factor loading" for each latent variable, which represents the species' response to the latent variable.
+
+In a temporal model, latent variables condense the variation that is left unexplained into a "predictor" that capture some structured pattern across responses (e.g. species' abundance trends) through time. For example, these latent variables can capture temporal autocorrelation between observations, meaning that we can tell our model to account for the fact that each observation is probably closer to neighbouring values though time (e.g. year 1 and year 2) than to a value that is several time steps away (e.g. year 1 and year 20).
+
+In a spatial model, latent variables can be applied to capture dynamic processes in space, such as spatial autocorrelation. Similarly to the temporal model, we often make the assumption that observations that are closer in space are more similar than observations that are further apart, because ecological patterns are in part driven by the environment, which is itself spatially-autocorrelated.
+
+### Mini pause: Let's talk *dynamic*
+
+Ok, and what do we mean by "dynamic"? A **dynamic factor model** assumes the factors that predict our response variable (i.e. biomass) evolve as time series too. In other words, a dynamic factor model provides even more flexibility to capture the "wiggly" effects of these predictors on our response variable through time.
+
+Okay, now that we've covered what a dynamic model is, let's make one!
+
+## Modelling multivariate time series with `mvgam`
+
+### The `mvgam` package
+
+The package `mvgam` is an interface to `Stan`, which is a language used to specify Bayesian statistical models. You could code these models directly in `Stan` if you wanted to - but `mvgam` allows you to specify the model in `R` (using the `R` syntax you know and love) and produces and compiles the `Stan` file for your model for you. Isn't that nice? That means you can focus on thinking about what your model should be doing, rather than on learning a new programming language (which can be great to learn, too!).
+
+The `mvgam` package has a lot more functionalities (many observation families for different types of data, forecasting functions, and more) than we will be using here. We *really* recommend that you have a look at the quite impressive amount of documentation about the package if you're interested in specifying different models with your own data. See the seminars, tutorials, vignettes, and more here: [nicholasjclark.github.io/mvgam](https://nicholasjclark.github.io/mvgam/).
+
+### A little warning
+
+> In Part 2, we will build a Bayesian model but will not discuss Bayesian theory or practices in detail. This is just a quick tutorial to hit the ground running, but before building your own model, you should have a better grasp of how Bayesian models work, and how to build them with care. To learn more:
+>
+> -   [Towards A Principled Bayesian Workflow](https://betanalpha.github.io/assets/case_studies/principled_bayesian_workflow.html) by Michael Betancourt
+>
+> -   [Bayes Rules! An Introduction to Applied Bayesian Modeling](https://www.bayesrulesbook.com) by Alicia A. Johnson, Miles Q. Ott, Mine Dogucu.
+>
+> -   How to change the default priors in `mvgam` in [this example](https://nicholasjclark.github.io/physalia-forecasting-course/day4/tutorial_4_physalia#Multiseries_dynamics)
+>
+> -   More documentation, vignettes, and tutorials can be found on the [`mvgam` site](https://nicholasjclark.github.io/mvgam/)
+
+### Build a hierarchical model with `mvgam`
+
+First, load the `mvgam` package and the `marginaleffects` package that we will be using to visualize the model:
+
+```{r, message=FALSE, echo = FALSE, include=FALSE}
+# install packages from CRAN
+
+# install.packages(pkgs = c("dplyr", "tidyr", mvgam", "mgcv", "gratia", "marginaleffects", "corrplot", "ggplot2"), dependencies = TRUE)
+library("dplyr")
+library("tidyr")
+library("mvgam")
+library("mgcv")
+library("gratia")
+library("marginaleffects")
+library("corrplot")
+library("ggplot2")
+
+# set all ggplots to this theme
+theme_set(theme_minimal())
+```
+
+Our model is an attempt to estimate how plankton vary in abundance through time. Let's consider what we know about the system, to help us build this model:
+
+1.  We know that there is strong seasonal variation due to temperature changes within each year that drives all plankton groups to fluctuate through time.
+
+2.  We are also interested in how plankton abundance is changing annually, on the longer term of the time series.
+
+3.  We know that these plankton are embedded in a complex system within a lake, and that their dynamics may be dependent for many reasons. In other words, some groups may be correlated through time, and even more complicated - these correlations may not be happening immediately. There may be *lagged* correlations between groups as well!
+
+Let's build this model piece by piece, to capture each of these levels of variation:
+
+First, let's split the data into a training set, used to build the model, and a testing set, used to evaluate the model.
+
+```{r, echo = F}
+plankton_data = readRDS(here::here("saved-objects/plankton-data.rds"))
+```
+
+```{r}
+plankton_train <- plankton_data %>%
+  dplyr::filter(time <= 112)
+plankton_test <- plankton_data %>%
+  dplyr::filter(time > 112)
+```
+
+#### Specify the model
+
+Next, we'll build a hierarchical GAM with a global smoother for all groups, and species-specific smooths in `mvgam`.
+
+This will allow us to capture the "global" seasonality that drives all plankton groups to fluctuate similarly through the time series, and to capture how each group's seasonal fluctuations differ from this overall, global trend.
+
+```{r, cache=TRUE, eval = FALSE}
+notrend_mod <- mvgam(formula = 
+                       y ~ 
+                       # tensor of temp and month to capture
+                       # "global" seasonality across plankton groups
+                       te(temp, month, k = c(4, 4)) +
+                       
+                       # series-specific deviation tensor products
+                       # in other words, each plankton group can deviate from the
+                       # global trend in its own way
+                       te(temp, month, k = c(4, 4), by = series),
+                     
+                     # set the observation family to Gaussian
+                     family = gaussian(),
+                     
+                     # our long-format dataset, split into a training and a testing set
+                     data = plankton_train,
+                     newdata = plankton_test,
+                     
+                     # no latent trend model for now (so we can see its impact later on!)
+                     trend_model = 'None',
+                     
+                     # compilation & sampling settings
+                     use_stan = TRUE,
+                     # here, we are only going to use the default sampling settings to keep the
+                     # model quick for the tutorial. If you were really going to run
+                     # this, you should use set the chains, samples, and burnin arguments.
+)
+```
+
+```{r,include=FALSE, eval=FALSE}
+saveRDS(notrend_mod, "saved-objects/notrend_mod.rds")
+```
+
+```{r,include=FALSE, eval=TRUE}
+notrend_mod = readRDS(here::here("saved-objects/notrend_mod.rds"))
+```
+
+Let's look at the `Stan` code that `mvgam` just wrote and ran for us:
+
+```{r}
+stancode(notrend_mod)
+```
+
+And finally, the model summary.
+
+```{r}
+summary(notrend_mod, include_betas = FALSE)
+```
+
+#### Visualise the model
+
+Let's first plot the global smoother for all species over time:
+
+```{r}
+plot_mvgam_smooth(notrend_mod)
+```
+
+This is the shared seasonal trend estimated across all groups at once. We can see that the model was able to capture the seasonal temporal structure of the plankton counts, based on temperature and time (months).
+
+We can also see how each group deviates from this global smooth (i.e. the partial effects):
+
+```{r}
+gratia::draw(notrend_mod$mgcv_model)
+```
+
+The colour shows us the strength of the partial effect of We can see that the model was able to capture some differences between each plankton group's seasonal trend and the community's global trend.
+
+#### Inspect the model
+
+A great test of how good a model is, is to see how well it forecasts data we already have. We split the data into a training set and a test set above. Let's see how well the trained model predicts this test set!
+
+```{r, fig.ncol=2,results='hide'}
+sapply(1:5, function(x) plot(notrend_mod, type = 'forecast', series = x))
+```
+
+The points are the data points, and the red line and ribbon show the forecast trend and its credible intervals. Overall, these forecasts are okay, but not perfect - the data points are often within the credible intervals, and the forecasted trend seems to follow the seasonal trend pretty well. The model seems to understand that there is a strong seasonal trend in our observations, and is trying to predict it for each plankton group.
+
+But how's the model doing, overall? Let's plot the residuals:
+
+```{r,results='hide'}
+sapply(1:5, function(x) plot_mvgam_resids(notrend_mod, series = x))
+```
+
+Looking at the Autocorrelation Function plots (ACF), we can see that there's still a lot of temporal autocorrelation to deal with in the model. Let's try to address some of this with a dynamic model!
+
+### Dynamic model
+
+Let's now add a dynamic trend component to the model, to capture some of the variation that isn't captured in our previous model.
+
+You can specify many kinds of dynamic trends with `mvgam`, but we won't go into much detail here. We want to demonstrate the power of this approach, but you will need to select the dynamic trend model that works best for you. Here, we will use a Gaussian Process to model temporal autocorrelation in our data, which can specified as `GP` in `mvgam`.
+
+```{r, cache=TRUE, eval = FALSE}
+gptrend_mod <- mvgam(formula=  
+                        y ~ 
+                        te(temp, month, k = c(4, 4)) +
+                        te(temp, month, k = c(4, 4), by = series),
+                      
+                      # latent trend model
+                      # setting to order 1, meaning the autocorrelation is assumed to be 1 time step.
+                      trend_model = "GP",  
+                      
+                      # use dynamic factors to estimate the latent trends
+                      use_lv = TRUE,
+                      
+                      # observation family
+                      family = gaussian(),
+                      
+                      # our long-format datasets
+                      data = plankton_train,
+                      newdata = plankton_test,
+                      
+                      # use reduced samples for inclusion in tutorial data
+                      samples = 100)
+```
+
+```{r,include=FALSE, eval=FALSE}
+saveRDS(gptrend_mod, here::here("saved-objects/gptrend_mod.rds"))
+```
+
+```{r,include=FALSE, eval=TRUE,cache=TRUE}
+gptrend_mod = readRDS(here::here("saved-objects/gptrend_mod.rds"))
+```
+
+#### Inspect the model
+
+This workshop is only a quick glimpse of how to build a Bayesian model. If you want to learn more about how to inspect your model and understand how "good" it is, please check out: [Bayes Rules! An Introduction to Applied Bayesian Modeling, Chapter 10: Evaluating Regression Models](https://www.bayesrulesbook.com/chapter-10).
+
+Posterior predictive checks are one way to investigate a Bayesian model's ability to make unbiased predictions. In this check, we'll be measuring the posterior prediction error of our model - in other words, how close are our model predictions to the expected value of Y?
+
+These plots compare the observed data (solid black line) to the posterior predictions drawn from the fitted model (red line and credible interval ribbons). If our model is unbiased, these two lines should match pretty well. If there is a bias, we would see that the model predictions are very different from the black solid line.
+
+```{r, fig.ncol=2, results = 'hide'}
+sapply(1:5, FUN = function(x) ppc(gptrend_mod, series = x, type = 'density'))
+```
+
+These plots are pretty encouraging - our model isn't generating biased predictions compared to the observation data (black line). Our model is doing a pretty good job!
+
+Let's check out the model summary - how does it differ from the model without the dynamic factors?
+
+```{r}
+summary(gptrend_mod, include_betas = FALSE)
+```
+
+#### Visualise the model
+
+Plot the global smoother for all species over time:
+
+```{r}
+plot_mvgam_smooth(gptrend_mod)
+```
+
+This is the shared temporal trend estimated across all species at once. We can see that, overall, species' biomassess declined during this time period.
+
+Plot the species' estimated trends:
+
+```{r, fig.ncol=2, message=F, warning=F, results = 'hide'}
+sapply(1:5, function(x) plot_mvgam_trend(gptrend_mod, series = x))
+```
+
+And, importantly, let's have a look at the dynamic factors estimated by the model to capture temporal dynamics in our response data:
+
+```{r}
+plot(gptrend_mod, type = 'factors')
+```
+
+These are the famous dynamic latent variables we've been talking about. You can see that they are capturing some of the unexplained temporal variation in our model. The model actually makes a bunch of these, and penalized them harshly to make latent variables that have a high explanatory power. This is the result!
+
+##### Partial effects
+
+We can plot the partial effect of each variable we included in our model, to understand how they contribute to the overall model.
+
+Let's start with the partial effect of temperature on plankton counts across groups:
+
+```{r}
+plot_predictions(gptrend_mod, condition = c("temp"), conf_level = 0.9)
+```
+
+Next, the partial effect of seasonality (here, months) on plankton counts across groups:
+
+```{r}
+plot_predictions(gptrend_mod, condition = c("month"), conf_level = 0.9)
+```
+
+And finally, the effect of different plankton groups on the model:
+
+```{r}
+plot_predictions(gptrend_mod, condition = c("series"), conf_level = 0.9)
+```
+
+#### Calculate the rate of change in plankton counts
+
+We can add each group's estimated rate of change in abundance through time to these plots. Think of this as the slope of their estimated trend at each time point - this can give us an idea of the rate at which some groups declined or grew during the time series. If the derivative trend is centred on the zero line, the response variable (here, counts) were fluctuating around their mean abundance rather than declining or growing in a consistent way through time.
+
+As an example, let's look at the blue-green algae trend, where the first panel is the estimated trend of the blue-green algae counts through time, and the bottom panel is the rate of change in these counts over time. In the second panel, negative values mean there was a decline in counts, and positive values mean there was an increase in counts. This can be very useful to calculate population growth rates through time:
+
+```{r, message=F, warning=F, results = 'hide'}
+plot_mvgam_trend(gptrend_mod, series = 1, derivatives = TRUE)
+```
+
+It seems that these blue-green algae were pretty stable in the beginning of the time series, then declined slightly, then declined quickly around time step 100. The counts then increaased after this point.
+
+We made a slightly "hacked" version of this function to extract the derivatives:
+
+```{r, results='hide',echo=TRUE, eval = FALSE}
+source(here::here("saved-objects/custom-function.R"))
+derivs = lapply(1:5, function(x) plot_mvgam_trend_custom(gptrend_mod, series = x, derivatives = TRUE))
+names(derivs) = gptrend_mod$obs_data$series |> levels()
+```
+
+```{r, include=FALSE, echo=FALSE, eval = FALSE}
+saveRDS(derivs, here::here("saved-objects/derivs.rds"))
+```
+
+```{r, include=FALSE, echo=FALSE}
+derivs = readRDS(here::here("saved-objects/derivs.rds"))
+```
+
+Let's look at a histogram of the derivatives to get an idea of how this group's counts changed over time, on average:
+
+```{r}
+# reformatting the data for easier plotting
+df = lapply(derivs, function(x) x[,-1]) |> 
+  lapply(as.data.frame) |>
+  lapply(pivot_longer, cols = everything()) |>
+  bind_rows(.id = "Group")
+
+# make a histogram of rates of changes in counts for each plankton group
+(plot_trenddensity = 
+   ggplot(data = df) +
+   geom_histogram(aes(x = value, fill = after_stat(x)), 
+                  col = "black", linewidth = .2, bins = 19) + 
+   geom_vline(xintercept = mean(df$value, na.rm = TRUE)) +
+   geom_vline(xintercept = mean(df$value, na.rm = TRUE) - sd(df$value, na.rm = TRUE), lty = 2) +
+   geom_vline(xintercept = mean(df$value, na.rm = TRUE) + sd(df$value, na.rm = TRUE), lty = 2) +
+   theme(panel.grid.major.x = element_line()) +
+   scale_y_sqrt() +
+   labs(x = "Rate of change", 
+        y = "Frequency", 
+        fill = "Rate of change") +
+   scale_fill_distiller(palette = "RdYlGn", 
+                        direction = 1, 
+                        limits = c(-.4,.4)) +
+   coord_cartesian(xlim = c(-.4, .4))) +
+  facet_wrap(~Group, ncol = 2) +
+  theme(legend.position = "top")
+```
+
+The median of the distribution of rates of change is \~0 for all the groups - but does this mean they didn't vary throughout the time series? Not at all! Look at the difference in the spread of rates of change between Bluegreens and the other groups. Bluegreens went through several periods of large growth (green) and of large declines (red), while Diatoms and Greens varied relatively little (all of their rates of change are at or close to 0). If you scroll back up to see the predicted trends for each group, do these histograms make sense to you?
+
+#### Species correlations
+
+One way to investigate community dynamics is to check out the correlations between plankton groups. These correlations are captured with the dynamic model, which estimates unmeasured temporal processes in our data.
+
+Let's calculate and plot species' temporal correlations and plot them as a heatmap:
+
+```{r}
+# Calculate the correlations from the latent trend model
+species_correlations = lv_correlations(gptrend_mod)
+
+# prepare the matrix for plotting
+toplot = species_correlations$mean_correlations
+colnames(toplot) = gsub("_", "\n", stringr::str_to_sentence(colnames(toplot)))
+rownames(toplot) = gsub("_", "\n", stringr::str_to_sentence(rownames(toplot)))
+
+# plot as a heatmap
+corrplot::corrplot(toplot, 
+                   type = "lower",
+                   method = "color", 
+                   tl.cex = 1, cl.cex = 1, tl.col = "black", font = 3,)
+```
+
+### Model comparison
+
+So, which model is best?
+
+We will use leave-one-out comparison to compare the two models we just built: `notrend_mod` which does not have a dynamic trend, and `gptrend` which includes an autoregressive latent trend model.
+
+This workshop isn't really about model comparison, so we will just use this approach as an example, but there are other ways you could compare these models.
+
+One way is to compare the predictive performance of the models on new data using a metric of comparison like expected log pointwise predictive density (ELPD).
+
+```{r}
+mvgam::loo_compare(notrend_mod, gptrend_mod,
+                   model_names = c("No trend", "Dynamic trend"))
+```
+
+The dynamic trend model performs better than the model with no trend (here, we want high - more positive- values for elpd_dif).
+
+Another way is to consider the ecological processes that influence our response variable. Which model do you think does a better job of representing the factors that cause plankton counts to vary through time?
+
+# Wrap up
+
+We hope you've enjoyed this short tutorial on hierarchical generalized additive models with `mgcv` and `mvgam`.
+
+At the end of this tutorial, we hope you now feel you understand how a hierarchical model works, and how it can be used to capture nonlinear effects. The R packages `mgcv` and `mvgam` packages are great tools to build and fit hierarchical models!
+
+We also covered dynamic modelling, and how latent variables can be used to capture dynamic processes like temporal or spatial autocorrelation. Can you use latent variables to explain variation in your own models?
+
+# Thank you
+
+Thank you to BIOS2 and Gracielle Higino, Andrew Macdonald, and Kim Gauthier-Schampaert for supporting this workshop. Special thanks to Nicholas J. Clark for helpful suggestions and for providing much of the material we used to build this workshop.
+
+If you're interested in talking more about these models, [please join our community calls](https://bios2.usherbrooke.ca/2025/02/21/hgams-working-group-community-calls/) during March and April 2025! We welcome anyone interested in GAMs, computational ecology, or eager to learn more about HGAMs to participate in the following sessions:
+
+-   **Temporal Ecology with HGAMs**\
+    When: March 7, 2025 at 1:30 PM (EST)\
+    Registration: <https://us02web.zoom.us/meeting/register/eocqFUC7QZG9HqydWb2Lsw#/registration>
+
+-   **Spatial Ecology with HGAMs**\
+    When: March 14, 2025 at 1:30 PM (EST)\
+    Registration: <https://us02web.zoom.us/meeting/register/BAdUd6hKSDmzG_w4hgbgrQ#/registration>
+
+-   **Behavioural Ecology with HGAMs**\
+    When: March 24, 2025 at 1:30 PM (EST)\
+    Registration: <https://us02web.zoom.us/meeting/register/taVdATjWRw2uhzYTry2bHA#/registration>
+
+Each discussion will focus on the outstanding ecological questions that we could answer with HGAMs, highlighting a wide array of potential applications for specific types of ecological and evolutionary data. Join us in thinking about how we could use HGAMs to push ecological research forward!
