@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.41">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Camille Lévesque">
+<meta name="author" content="Katherine Hébert">
+<meta name="dcterms.date" content="2025-03-03">
+<meta name="description" content="This course is designed to demystify hierarchical modelling as powerful tools to model population dynamics, spatial distributions, and any non-linear relationships in your ecological data. The training will be divided into two blocks. First, we will cover hierarchies in biology, data, and in models to understand what hierarchical models are, some of the forms they can take, and the fundamentals of how they work. Second, we will introduce latent variable modelling as a way to explain even more of the variation in our response variables, to better disentangle the hierarchies of variation in our data. Both blocks will include a theoretical presentation followed by hands-on coding exercises to implement and interpret hierarchical GAMs.">
+
+<title>Introduction to Hierarchical Generalized Additive Models</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="index_files/libs/clipboard/clipboard.min.js"></script>
+<script src="index_files/libs/quarto-html/quarto.js"></script>
+<script src="index_files/libs/quarto-html/popper.min.js"></script>
+<script src="index_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="index_files/libs/quarto-html/anchor.min.js"></script>
+<link href="index_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="index_files/libs/quarto-html/quarto-syntax-highlighting-48ffa3e5b9d089919c6712c39e5b00f2.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="index_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="index_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="index_files/libs/bootstrap/bootstrap-8ae62203c36b68cf38a805210c83b904.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">1</span> Overview</a>
+  <ul class="collapse">
+  <li><a href="#credits" id="toc-credits" class="nav-link" data-scroll-target="#credits">Credits</a></li>
+  <li><a href="#learning-outcomes" id="toc-learning-outcomes" class="nav-link" data-scroll-target="#learning-outcomes">Learning outcomes</a></li>
+  <li><a href="#requirements" id="toc-requirements" class="nav-link" data-scroll-target="#requirements">Requirements</a>
+  <ul class="collapse">
+  <li><a href="#stan" id="toc-stan" class="nav-link" data-scroll-target="#stan">Stan</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#workshop-materials" id="toc-workshop-materials" class="nav-link" data-scroll-target="#workshop-materials"><span class="header-section-number">2</span> Workshop materials</a>
+  <ul class="collapse">
+  <li><a href="#about-the-data-set" id="toc-about-the-data-set" class="nav-link" data-scroll-target="#about-the-data-set">About the data set</a>
+  <ul class="collapse">
+  <li><a href="#data-download" id="toc-data-download" class="nav-link" data-scroll-target="#data-download">Data download</a></li>
+  <li><a href="#prepare-the-data" id="toc-prepare-the-data" class="nav-link" data-scroll-target="#prepare-the-data">Prepare the data</a></li>
+  </ul></li>
+  <li><a href="#part-1-hierarchical-generalized-additive-models-hgams" id="toc-part-1-hierarchical-generalized-additive-models-hgams" class="nav-link" data-scroll-target="#part-1-hierarchical-generalized-additive-models-hgams">Part 1: Hierarchical Generalized Additive Models (HGAMs)</a></li>
+  </ul></li>
+  <li><a href="#block-2---digging-deeper-with-dynamic-and-hierarchical-generalized-additive-models" id="toc-block-2---digging-deeper-with-dynamic-and-hierarchical-generalized-additive-models" class="nav-link" data-scroll-target="#block-2---digging-deeper-with-dynamic-and-hierarchical-generalized-additive-models"><span class="header-section-number">3</span> Block 2 - Digging deeper with Dynamic (and Hierarchical!) Generalized Additive Models</a>
+  <ul class="collapse">
+  <li><a href="#pause-lets-talk-latents" id="toc-pause-lets-talk-latents" class="nav-link" data-scroll-target="#pause-lets-talk-latents">Pause: Let’s talk <em>latents</em></a></li>
+  <li><a href="#mini-pause-lets-talk-dynamic" id="toc-mini-pause-lets-talk-dynamic" class="nav-link" data-scroll-target="#mini-pause-lets-talk-dynamic">Mini pause: Let’s talk <em>dynamic</em></a></li>
+  <li><a href="#modelling-multivariate-time-series-with-mvgam" id="toc-modelling-multivariate-time-series-with-mvgam" class="nav-link" data-scroll-target="#modelling-multivariate-time-series-with-mvgam">Modelling multivariate time series with <code>mvgam</code></a>
+  <ul class="collapse">
+  <li><a href="#the-mvgam-package" id="toc-the-mvgam-package" class="nav-link" data-scroll-target="#the-mvgam-package">The <code>mvgam</code> package</a></li>
+  <li><a href="#a-little-warning" id="toc-a-little-warning" class="nav-link" data-scroll-target="#a-little-warning">A little warning</a></li>
+  <li><a href="#build-a-hierarchical-model-with-mvgam" id="toc-build-a-hierarchical-model-with-mvgam" class="nav-link" data-scroll-target="#build-a-hierarchical-model-with-mvgam">Build a hierarchical model with <code>mvgam</code></a></li>
+  <li><a href="#dynamic-model" id="toc-dynamic-model" class="nav-link" data-scroll-target="#dynamic-model">Dynamic model</a></li>
+  <li><a href="#model-comparison" id="toc-model-comparison" class="nav-link" data-scroll-target="#model-comparison">Model comparison</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#wrap-up" id="toc-wrap-up" class="nav-link" data-scroll-target="#wrap-up"><span class="header-section-number">4</span> Wrap up</a></li>
+  <li><a href="#thank-you" id="toc-thank-you" class="nav-link" data-scroll-target="#thank-you"><span class="header-section-number">5</span> Thank you</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Introduction to Hierarchical Generalized Additive Models</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">Technical</div>
+    <div class="quarto-category">EN</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    <p>This course is designed to demystify hierarchical modelling as powerful tools to model population dynamics, spatial distributions, and any non-linear relationships in your ecological data. The training will be divided into two blocks. First, we will cover hierarchies in biology, data, and in models to understand what hierarchical models are, some of the forms they can take, and the fundamentals of how they work. Second, we will introduce latent variable modelling as a way to explain even more of the variation in our response variables, to better disentangle the hierarchies of variation in our data. Both blocks will include a theoretical presentation followed by hands-on coding exercises to implement and interpret hierarchical GAMs.</p>
+  </div>
+</div>
+
+<div class="quarto-title-meta-author">
+  <div class="quarto-title-meta-heading">Authors</div>
+  <div class="quarto-title-meta-heading">Affiliations</div>
+  
+    <div class="quarto-title-meta-contents">
+    <p class="author">Camille Lévesque </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Université de Sherbrooke
+          </p>
+      </div>
+    <div class="quarto-title-meta-contents">
+    <p class="author">Katherine Hébert </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            McGill University
+          </p>
+      </div>
+  </div>
+
+<div class="quarto-title-meta">
+
+      
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">March 3, 2025</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Overview</h1>
+<p>This course is designed to demystify hierarchical modelling as powerful tools to model population dynamics, spatial distributions, and any non-linear relationships in your ecological data. The training will be divided into two blocks.</p>
+<ol type="1">
+<li><p>First, we will cover hierarchies in biology, data, and in models to understand what hierarchical models are, some of the forms they can take, and the fundamentals of how they work.</p></li>
+<li><p>Second, we will introduce latent variable modelling as a way to explain even more of the variation in our response variables, to better disentangle the hierarchies of variation in our data.</p></li>
+</ol>
+<p>Both blocks will include a theoretical presentation followed by hands-on coding exercises to implement and interpret hierarchical GAMs.</p>
+<p>This workshop was developed with support from the <a href="https://bios2.usherbrooke.ca/">NSERC CREATE Computational Biodiversity Science and Services (BIOS²)</a> training program.</p>
+<section id="credits" class="level2">
+<h2 class="anchored" data-anchor-id="credits">Credits</h2>
+<p>This workshop is based on Nicholas J. Clark’s Physalia course “Ecological forecasting with <code>mvgam</code> and <code>brms</code>”. It was reworked by Katherine Hébert and Camille Lévesque into this short tutorial (mainly in Part 2), but we recommend having a look at the original for a more in-depth look at the methods we are covering today:</p>
+<blockquote class="blockquote">
+<p>Clark, N. J. (2024). “Ecological forecasting with <code>mvgam</code> and <code>brms</code>”. Physalia. Retrieved from <a href="https://nicholasjclark.github.io/physalia-forecasting-course/" class="uri">https://nicholasjclark.github.io/physalia-forecasting-course/</a>.</p>
+</blockquote>
+</section>
+<section id="learning-outcomes" class="level2">
+<h2 class="anchored" data-anchor-id="learning-outcomes">Learning outcomes</h2>
+<ol type="1">
+<li><p>Understand how a hierarchical model works, and how it can be used to capture nonlinear effects</p></li>
+<li><p>Understand dynamic modelling, and how latent variables can be used to capture dynamic processes like temporal or spatial autocorrelation</p></li>
+<li><p>Use the R packages <code>mgcv</code> and <code>mvgam</code> packages to build and fit hierarchical models</p></li>
+<li><p>Understand how to visualize and interpret hierarchical models with these packages</p></li>
+</ol>
+</section>
+<section id="requirements" class="level2">
+<h2 class="anchored" data-anchor-id="requirements">Requirements</h2>
+<section id="familiarity-with-generalized-additive-modelling" class="level4">
+<h4 class="anchored" data-anchor-id="familiarity-with-generalized-additive-modelling">Familiarity with Generalized Additive Modelling</h4>
+<p>We recommend previous experience with GAMs before taking this training. If you would like to follow an introduction to GAMs before this workshop, please have a look at Eric Pedersen’s <a href="https://bios2.usherbrooke.ca/2021/10/20/workshop-gams-2021/">Introduction to GAMs</a> and/or the Québec Centre for Biodiversity Science’s <a href="http://r.qcbs.ca/workshop08/book-en/">Workshop 8: GAMs</a>.</p>
+</section>
+<section id="familiarity-with-bayesian" class="level4">
+<h4 class="anchored" data-anchor-id="familiarity-with-bayesian">Familiarity with Bayesian</h4>
+</section>
+<section id="r-rstudio" class="level4">
+<h4 class="anchored" data-anchor-id="r-rstudio">R &amp; RStudio</h4>
+<p>The workshop assumes basic familiarity with R/RStudio. To be able to follow along with the practical exercises on your own computer, in addition to downloading the data files above, you will need to do the following:</p>
+<p>Install the latest version of R for your operating system: <a href="https://cran.r-project.org/" class="uri">https://cran.r-project.org/</a>. Install the latest version of RStudio for your operating system: <a href="https://www.rstudio.com/products/rstudio/download/" class="uri">https://www.rstudio.com/products/rstudio/download/</a></p>
+</section>
+<section id="r-packages" class="level4">
+<h4 class="anchored" data-anchor-id="r-packages">R packages</h4>
+<p>Install and load the packages that we will use during the workshop by executing the following code in R version 4.2.0:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># install packages from CRAN</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages(pkgs = c("dplyr", "tidyr", mvgam", "mgcv", "gratia", "marginaleffects", "corrplot", "ggplot2"), dependencies = TRUE)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"dplyr"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"tidyr"</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"mvgam"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"mgcv"</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"gratia"</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"marginaleffects"</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"corrplot"</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># set all ggplots to this theme</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(<span class="fu">theme_minimal</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="stan" class="level3">
+<h3 class="anchored" data-anchor-id="stan">Stan</h3>
+<p>Please note that for Block 2, we will be fitting models using <code>Stan</code>. <code>Stan</code> must be installed (along with either <code>rstan</code> and/or <code>cmdstanr</code>). Please refer to installation links for <code>Stan</code> with <code>cmdstandr</code> <a href="https://mc-stan.org/cmdstanr/">here</a> (or with <code>rstan</code> <a href="https://mc-stan.org/users/interfaces/rstan">here</a>).</p>
+<hr>
+</section>
+</section>
+</section>
+<section id="workshop-materials" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Workshop materials</h1>
+<section id="about-the-data-set" class="level2">
+<h2 class="anchored" data-anchor-id="about-the-data-set">About the data set</h2>
+<p>In this workshop, we will be analyzing time series of plankton counts (cells per mL) taken from Lake Washington in Washington, USA during a long-term monitoring study. The data are available in the <code>MARSS</code> package, and are described and analyse in greater detail in this publication:</p>
+<blockquote class="blockquote">
+<p>Hampton Stephanie E. , Scheuerell Mark D. , Schindler Daniel E. , (2006), Coalescence in the Lake Washington story: Interaction strengths in a planktonic food web, <em>Limnology and Oceanography</em>, 51, doi: <a href="https://aslopubs.onlinelibrary.wiley.com/doi/abs/10.4319/lo.2006.51.5.2042">10.4319/lo.2006.51.5.2042</a>.</p>
+</blockquote>
+<p>Some information about the data, from the <code>MARSS</code> package documentation (<a href="https://atsa-es.github.io/MARSS/reference/plankton.html">link</a>):</p>
+<blockquote class="blockquote">
+<p>The <code>lakeWAplankton</code> data set consists for two data sets: <code>lakeWAplanktonRaw</code> and a dataset derived from the raw dataset, <code>lakeWAplanktonTrans</code>. <code>lakeWAplanktonRaw</code> is a <strong>32-year time series (1962-1994)</strong> <strong>of monthly plankton counts</strong> from Lake Washington, Washington, USA. Columns 1 and 2 are year and month. Column 3 is temperature (C), column 4 is total phosphorous, and column 5 is pH. The next columns are the plankton counts in units of cells per mL for the phytoplankton and organisms per L for the zooplankton.</p>
+<p><code>lakeWAplanktonTrans</code> is a transformed version of <code>lakeWAplanktonRaw</code>. Zeros have been replaced with NAs (missing). The logged (natural log) raw plankton counts have been standardized to a mean of zero and variance of 1 (so logged and then z-scored). Temperature, TP &amp; pH were also z-scored but not logged (so z-score of the untransformed values for these covariates). The single missing temperature value was replaced with -1 and the single missing TP value was replaced with -0.3.</p>
+</blockquote>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="https://www.google.com/url?sa=i&amp;url=https%3A%2F%2Fcommons.wikimedia.org%2Fwiki%2FFile%3ALake_Washington_region.png&amp;psig=AOvVaw3-T1CwR0iIWfiMD1B0WiFK&amp;ust=1740498251184000&amp;source=images&amp;cd=vfe&amp;opi=89978449&amp;ved=0CBQQjRxqFwoTCKjh87LT3IsDFQAAAAAdAAAAABAJ"><img src="https://upload.wikimedia.org/wikipedia/commons/e/ec/Lake_Washington_region.png" class="img-fluid quarto-figure quarto-figure-center figure-img"></a></p>
+</figure>
+</div>
+<p>The data download and preparation steps are identical to the <a href="https://nicholasjclark.github.io/physalia-forecasting-course/day4/tutorial_4_physalia#Lake_Washington_plankton_data">steps in Nicholas J. Clark’s Physalia course</a>.</p>
+<section id="data-download" class="level3">
+<h3 class="anchored" data-anchor-id="data-download">Data download</h3>
+<p>Load the dataset:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="fu">url</span>(<span class="st">'https://github.com/atsa-es/MARSS/raw/master/data/lakeWAplankton.rda'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="prepare-the-data" class="level3">
+<h3 class="anchored" data-anchor-id="prepare-the-data">Prepare the data</h3>
+<p>First, the data needs to be prepared into a long format (i.e., one observation per row). In Part 2, the <code>mvgam</code> package will require specific column names, so we will prepare the data to match the package’s requirements.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="do">## Prepare the time series data for analysis </span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># This code is from https://nicholasjclark.github.io/physalia-forecasting-course/day4/tutorial_4_physalia</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># We will work with five different groups of plankton:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>outcomes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">'Greens'</span>, <span class="st">'Bluegreens'</span>, <span class="st">'Diatoms'</span>, <span class="st">'Unicells'</span>, <span class="st">'Other.algae'</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>plankton_data <span class="ot">&lt;-</span> xfun<span class="sc">::</span><span class="fu">cache_rds</span>(<span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(outcomes, <span class="cf">function</span>(x){</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># create a group-specific dataframe with counts labelled 'y'</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># and the group name in the 'series' variable</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">year =</span> lakeWAplanktonTrans[, <span class="st">'Year'</span>],</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">month =</span> lakeWAplanktonTrans[, <span class="st">'Month'</span>],</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>             <span class="at">y =</span> lakeWAplanktonTrans[, x],</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>             <span class="at">series =</span> x,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>             <span class="at">temp =</span> lakeWAplanktonTrans[, <span class="st">'Temp'</span>])})) <span class="sc">%&gt;%</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># change the 'series' label to a factor</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">series =</span> <span class="fu">factor</span>(series)) <span class="sc">%&gt;%</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># filter to only include some years in the data</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(year <span class="sc">&gt;=</span> <span class="dv">1965</span> <span class="sc">&amp;</span> year <span class="sc">&lt;</span> <span class="dv">1975</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(year, month) <span class="sc">%&gt;%</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(series) <span class="sc">%&gt;%</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  <span class="co"># z-score the counts so they are approximately standard normal</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">y =</span> <span class="fu">as.vector</span>(<span class="fu">scale</span>(y))) <span class="sc">%&gt;%</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add the time indicator</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">time =</span> dplyr<span class="sc">::</span><span class="fu">row_number</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>())</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="co"># loop across each plankton group to create the long datframe</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>plankton_data <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(outcomes, <span class="cf">function</span>(x){</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="co"># create a group-specific dataframe with counts labelled 'y'</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># and the group name in the 'series' variable</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">year =</span> lakeWAplanktonTrans[, <span class="st">'Year'</span>],</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>             <span class="at">month =</span> lakeWAplanktonTrans[, <span class="st">'Month'</span>],</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>             <span class="at">y =</span> lakeWAplanktonTrans[, x],</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>             <span class="at">series =</span> x,</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>             <span class="at">temp =</span> lakeWAplanktonTrans[, <span class="st">'Temp'</span>])})) <span class="sc">%&gt;%</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>  <span class="co"># change the 'series' label to a factor</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">series =</span> <span class="fu">factor</span>(series)) <span class="sc">%&gt;%</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># filter to only include some years in the data</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(year <span class="sc">&gt;=</span> <span class="dv">1965</span> <span class="sc">&amp;</span> year <span class="sc">&lt;</span> <span class="dv">1975</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(year, month) <span class="sc">%&gt;%</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(series) <span class="sc">%&gt;%</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># z-score the counts so they are approximately standard normal</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">y =</span> <span class="fu">as.vector</span>(<span class="fu">scale</span>(y))) <span class="sc">%&gt;%</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add the time index</span></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">time =</span> dplyr<span class="sc">::</span><span class="fu">row_number</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s have a look at the data’s structure:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(plankton_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 6
+   year month       y series       temp  time
+  &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt; &lt;fct&gt;       &lt;dbl&gt; &lt;int&gt;
+1  1965     1 -0.542  Greens      -1.23     1
+2  1965     1 -0.344  Bluegreens  -1.23     1
+3  1965     1 -0.0768 Diatoms     -1.23     1
+4  1965     1 -1.52   Unicells    -1.23     1
+5  1965     1 -0.491  Other.algae -1.23     1
+6  1965     2 NA      Greens      -1.32     2</code></pre>
+</div>
+</div>
+<p>Let’s also plot the data to get a first look at the time series:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> plankton_data, <span class="fu">aes</span>(<span class="at">x =</span> time)) <span class="sc">+</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> temp), <span class="at">col =</span> <span class="st">"black"</span>) <span class="sc">+</span> <span class="co"># Temperature in black</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> y, <span class="at">col =</span> series), <span class="at">lwd =</span> .<span class="dv">4</span>) <span class="sc">+</span> <span class="co"># Taxa counts in color</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Time"</span>, <span class="at">y =</span> <span class="st">"Abundance (z-score)</span><span class="sc">\n</span><span class="st">(Temperature z-score in black)"</span>, <span class="at">col =</span> <span class="st">"Group"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="part-1-hierarchical-generalized-additive-models-hgams" class="level2">
+<h2 class="anchored" data-anchor-id="part-1-hierarchical-generalized-additive-models-hgams">Part 1: Hierarchical Generalized Additive Models (HGAMs)</h2>
+<p>Diatoms data set. *I want to illustrate nonlinearity for juste one series.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># subset</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>diatoms_data <span class="ot">&lt;-</span> plankton_data[plankton_data<span class="sc">$</span>series <span class="sc">==</span> <span class="st">"Diatoms"</span>, ]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Data points.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(diatoms_data, <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> y)) <span class="sc">+</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> y), <span class="at">lwd =</span> .<span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Diatoms Data Points"</span>, <span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Y Value"</span>) <span class="sc">+</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing missing values or values outside the scale range
+(`geom_point()`).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Linear model</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>diatoms_lm <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> time, <span class="at">data =</span> diatoms_data)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(diatoms_data, <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> y)) <span class="sc">+</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span>  <span class="co"># Scatter points</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"lm"</span>, <span class="at">color =</span> <span class="st">"blue1"</span>, <span class="at">fill =</span> <span class="st">"lightgray"</span>, <span class="at">se =</span> <span class="cn">TRUE</span>) <span class="sc">+</span>  <span class="co"># Regression line</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Diatoms Data with Linear Regression Line"</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Time"</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">"Y Value"</span>) <span class="sc">+</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`geom_smooth()` using formula = 'y ~ x'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing non-finite outside the scale range
+(`stat_smooth()`).</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing missing values or values outside the scale range
+(`geom_point()`).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>GAM</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># model</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>diatoms_gam <span class="ot">&lt;-</span> <span class="fu">gam</span>(y <span class="sc">~</span> <span class="fu">s</span>(time, <span class="at">bs =</span> <span class="st">"cs"</span>, <span class="at">k =</span> <span class="dv">50</span>), <span class="at">data =</span> diatoms_data)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co"># graph</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>gratia<span class="sc">::</span><span class="fu">draw</span>(diatoms_gam)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="block-2---digging-deeper-with-dynamic-and-hierarchical-generalized-additive-models" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Block 2 - Digging deeper with Dynamic (and Hierarchical!) Generalized Additive Models</h1>
+<p>Above, we modelled how plankton counts fluctuated through time with a hierarchical structure to understand how different groups vary through time. We noticed a strong seasonal pattern in these fluctuations.</p>
+<p>Before we continue, let’s “zoom out” a little and think about how our model relates to ecology. Our model is saying that plankton abundances generally follow the seasonal fluctuations in temperature in Lake Washington, and that differently plankton groups fluctuate a bit differently. All we have to explain these fluctuations through time is (1) time itself, (2) plankton groups, and (3) temperature through time.</p>
+<p>Are there other factors that could explain why plankton groups vary through time during this period? Yes, absolutely! There are unmeasured environmental factors that play some role here - for example, water chemistry - as well as some variations due to the process of measuring these plankton counts through time (i.e., measurement variability or observation error). These factors all leave an “imprint” in the time series we have here. And most importantly, these factors <strong>vary through time</strong> - they are themselves time series with their own temporal patterns.</p>
+<p><strong>But, do we have any measured predictors to add to the model to capture the influence of these factors?</strong> Unfortunately, as is often the case in ecological studies, we do not have measurements of these predictors through time.</p>
+<p>There are three important things to think about here:</p>
+<ol type="1">
+<li><p>There are <strong>unmeasured predictors</strong> that influence the trend we measured and are now modelling. The signature of these unmeasured processes is in the data, but we cannot capture it with the previous model because we did not include these predictors. This is called <strong>“latent variation”</strong>;</p></li>
+<li><p>Each species responds to these unmeasured predictors in their own way. (This is where the <strong>“hierarchical”</strong> bit comes in!)</p></li>
+<li><p>These processes are not static - they are <strong>dynamic</strong>. Like our response variable, these unmeasured predictors <strong>vary through time</strong>.</p></li>
+</ol>
+<section id="pause-lets-talk-latents" class="level3">
+<h3 class="anchored" data-anchor-id="pause-lets-talk-latents">Pause: Let’s talk <em>latents</em></h3>
+<p>You may have noticed that we slipped a new term into the previous section: “latent variation”. The definition of “latent” in the Merriam-Webster dictionary is:</p>
+<blockquote class="blockquote">
+<p>Present and capable of emerging or developing but not now visible, obvious, active, or symptomatic.</p>
+<p>OR</p>
+<p>a fingerprint (as at the scene of a crime) that is scarcely visible but can be developed for study</p>
+</blockquote>
+<p>It can be helpful to use this definition to conceptualise latent variation in our data. As we said above, there are “imprints” of factors that we didn’t measure on the time series we are modelling. These signals are present and influence the trends we estimate, but are “scarcely visible” because we lack information to detect them.</p>
+<p>In statistical models, latent variables are essentially random predictors that are generated during the modelling process to capture correlated variations between multiple responses (species, for example). The idea is that a bunch of these latent variables are randomly generated, and they are penalized until the model only retains a minimal set of latent variables that capture the main axes of covariation between responses. (Here, it can be useful to think of how a PCA reduces the dimensions of a dataset to a minimum of informative “axes”). Each species is then assigned a “factor loading” for each latent variable, which represents the species’ response to the latent variable.</p>
+<p>In a temporal model, latent variables condense the variation that is left unexplained into a “predictor” that capture some structured pattern across responses (e.g.&nbsp;species’ abundance trends) through time. For example, these latent variables can capture temporal autocorrelation between observations, meaning that we can tell our model to account for the fact that each observation is probably closer to neighbouring values though time (e.g.&nbsp;year 1 and year 2) than to a value that is several time steps away (e.g.&nbsp;year 1 and year 20).</p>
+<p>In a spatial model, latent variables can be applied to capture dynamic processes in space, such as spatial autocorrelation. Similarly to the temporal model, we often make the assumption that observations that are closer in space are more similar than observations that are further apart, because ecological patterns are in part driven by the environment, which is itself spatially-autocorrelated.</p>
+</section>
+<section id="mini-pause-lets-talk-dynamic" class="level3">
+<h3 class="anchored" data-anchor-id="mini-pause-lets-talk-dynamic">Mini pause: Let’s talk <em>dynamic</em></h3>
+<p>Ok, and what do we mean by “dynamic”? A <strong>dynamic factor model</strong> assumes the factors that predict our response variable (i.e.&nbsp;biomass) evolve as time series too. In other words, a dynamic factor model provides even more flexibility to capture the “wiggly” effects of these predictors on our response variable through time.</p>
+<p>Okay, now that we’ve covered what a dynamic model is, let’s make one!</p>
+</section>
+<section id="modelling-multivariate-time-series-with-mvgam" class="level2">
+<h2 class="anchored" data-anchor-id="modelling-multivariate-time-series-with-mvgam">Modelling multivariate time series with <code>mvgam</code></h2>
+<section id="the-mvgam-package" class="level3">
+<h3 class="anchored" data-anchor-id="the-mvgam-package">The <code>mvgam</code> package</h3>
+<p>The package <code>mvgam</code> is an interface to <code>Stan</code>, which is a language used to specify Bayesian statistical models. You could code these models directly in <code>Stan</code> if you wanted to - but <code>mvgam</code> allows you to specify the model in <code>R</code> (using the <code>R</code> syntax you know and love) and produces and compiles the <code>Stan</code> file for your model for you. Isn’t that nice? That means you can focus on thinking about what your model should be doing, rather than on learning a new programming language (which can be great to learn, too!).</p>
+<p>The <code>mvgam</code> package has a lot more functionalities (many observation families for different types of data, forecasting functions, and more) than we will be using here. We <em>really</em> recommend that you have a look at the quite impressive amount of documentation about the package if you’re interested in specifying different models with your own data. See the seminars, tutorials, vignettes, and more here: <a href="https://nicholasjclark.github.io/mvgam/">nicholasjclark.github.io/mvgam</a>.</p>
+</section>
+<section id="a-little-warning" class="level3">
+<h3 class="anchored" data-anchor-id="a-little-warning">A little warning</h3>
+<blockquote class="blockquote">
+<p>In Part 2, we will build a Bayesian model but will not discuss Bayesian theory or practices in detail. This is just a quick tutorial to hit the ground running, but before building your own model, you should have a better grasp of how Bayesian models work, and how to build them with care. To learn more:</p>
+<ul>
+<li><p><a href="https://betanalpha.github.io/assets/case_studies/principled_bayesian_workflow.html">Towards A Principled Bayesian Workflow</a> by Michael Betancourt</p></li>
+<li><p><a href="https://www.bayesrulesbook.com">Bayes Rules! An Introduction to Applied Bayesian Modeling</a> by Alicia A. Johnson, Miles Q. Ott, Mine Dogucu.</p></li>
+<li><p>How to change the default priors in <code>mvgam</code> in <a href="https://nicholasjclark.github.io/physalia-forecasting-course/day4/tutorial_4_physalia#Multiseries_dynamics">this example</a></p></li>
+<li><p>More documentation, vignettes, and tutorials can be found on the <a href="https://nicholasjclark.github.io/mvgam/"><code>mvgam</code> site</a></p></li>
+</ul>
+</blockquote>
+</section>
+<section id="build-a-hierarchical-model-with-mvgam" class="level3">
+<h3 class="anchored" data-anchor-id="build-a-hierarchical-model-with-mvgam">Build a hierarchical model with <code>mvgam</code></h3>
+<p>First, load the <code>mvgam</code> package and the <code>marginaleffects</code> package that we will be using to visualize the model:</p>
+<p>Our model is an attempt to estimate how plankton vary in abundance through time. Let’s consider what we know about the system, to help us build this model:</p>
+<ol type="1">
+<li><p>We know that there is strong seasonal variation due to temperature changes within each year that drives all plankton groups to fluctuate through time.</p></li>
+<li><p>We are also interested in how plankton abundance is changing annually, on the longer term of the time series.</p></li>
+<li><p>We know that these plankton are embedded in a complex system within a lake, and that their dynamics may be dependent for many reasons. In other words, some groups may be correlated through time, and even more complicated - these correlations may not be happening immediately. There may be <em>lagged</em> correlations between groups as well!</p></li>
+</ol>
+<p>Let’s build this model piece by piece, to capture each of these levels of variation:</p>
+<p>First, let’s split the data into a training set, used to build the model, and a testing set, used to evaluate the model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>plankton_train <span class="ot">&lt;-</span> plankton_data <span class="sc">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(time <span class="sc">&lt;=</span> <span class="dv">112</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>plankton_test <span class="ot">&lt;-</span> plankton_data <span class="sc">%&gt;%</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(time <span class="sc">&gt;</span> <span class="dv">112</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="specify-the-model" class="level4">
+<h4 class="anchored" data-anchor-id="specify-the-model">Specify the model</h4>
+<p>Next, we’ll build a hierarchical GAM with a global smoother for all groups, and species-specific smooths in <code>mvgam</code>.</p>
+<p>This will allow us to capture the “global” seasonality that drives all plankton groups to fluctuate similarly through the time series, and to capture how each group’s seasonal fluctuations differ from this overall, global trend.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>notrend_mod <span class="ot">&lt;-</span> <span class="fu">mvgam</span>(<span class="at">formula =</span> </span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>                       y <span class="sc">~</span> </span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>                       <span class="co"># tensor of temp and month to capture</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>                       <span class="co"># "global" seasonality across plankton groups</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">te</span>(temp, month, <span class="at">k =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>)) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>                       </span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>                       <span class="co"># series-specific deviation tensor products</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>                       <span class="co"># in other words, each plankton group can deviate from the</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>                       <span class="co"># global trend in its own way</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">te</span>(temp, month, <span class="at">k =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>), <span class="at">by =</span> series),</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>                     </span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># set the observation family to Gaussian</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>                     <span class="at">family =</span> <span class="fu">gaussian</span>(),</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>                     </span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># our long-format dataset, split into a training and a testing set</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>                     <span class="at">data =</span> plankton_train,</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>                     <span class="at">newdata =</span> plankton_test,</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>                     </span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># no latent trend model for now (so we can see its impact later on!)</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>                     <span class="at">trend_model =</span> <span class="st">'None'</span>,</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>                     </span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># compilation &amp; sampling settings</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>                     <span class="at">use_stan =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># here, we are only going to use the default sampling settings to keep the</span></span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># model quick for the tutorial. If you were really going to run</span></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>                     <span class="co"># this, you should use set the chains, samples, and burnin arguments.</span></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s look at the <code>Stan</code> code that <code>mvgam</code> just wrote and ran for us:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stancode</span>(notrend_mod)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>// Stan model code generated by package mvgam
+functions {
+vector rep_each(vector x, int K) {
+int N = rows(x);
+vector[N * K] y;
+int pos = 1;
+for (n in 1:N) {
+for (k in 1:K) {
+y[pos] = x[n];
+pos += 1;
+}
+}
+return y;
+}
+}
+data {
+int&lt;lower=0&gt; total_obs; // total number of observations
+int&lt;lower=0&gt; n; // number of timepoints per series
+int&lt;lower=0&gt; n_sp; // number of smoothing parameters
+int&lt;lower=0&gt; n_series; // number of series
+int&lt;lower=0&gt; num_basis; // total number of basis coefficients
+vector[num_basis] zero; // prior locations for basis coefficients
+matrix[total_obs, num_basis] X; // mgcv GAM design matrix
+array[n, n_series] int&lt;lower=0&gt; ytimes;  // time-ordered matrix (which col in X belongs to each [time, series] observation?)
+matrix[15,45] S1; // mgcv smooth penalty matrix S1
+matrix[15,45] S2; // mgcv smooth penalty matrix S2
+matrix[15,45] S3; // mgcv smooth penalty matrix S3
+matrix[15,45] S4; // mgcv smooth penalty matrix S4
+matrix[15,45] S5; // mgcv smooth penalty matrix S5
+matrix[15,45] S6; // mgcv smooth penalty matrix S6
+int&lt;lower=0&gt; n_nonmissing; // number of nonmissing observations
+vector[n_nonmissing] flat_ys; // flattened nonmissing observations
+matrix[n_nonmissing, num_basis] flat_xs; // X values for nonmissing observations
+array[n_nonmissing] int&lt;lower=0&gt; obs_ind; // indices of nonmissing observations
+}
+parameters {
+// raw basis coefficients
+vector[num_basis] b_raw;
+// gaussian observation error
+vector&lt;lower=0&gt;[n_series] sigma_obs;
+// smoothing parameters
+vector&lt;lower=0&gt;[n_sp] lambda;
+}
+transformed parameters {
+// basis coefficients
+vector[num_basis] b;
+b[1:num_basis] = b_raw[1:num_basis];
+}
+model {
+// prior for (Intercept)...
+b_raw[1] ~ student_t(3, -0.1, 2.5);
+// prior for te(temp,month)...
+b_raw[2:16] ~ multi_normal_prec(zero[2:16],S1[1:15,1:15] * lambda[1] + S1[1:15,16:30] * lambda[2] + S1[1:15,31:45] * lambda[3]);
+// prior for te(temp,month):seriesBluegreens...
+b_raw[17:31] ~ multi_normal_prec(zero[17:31],S2[1:15,1:15] * lambda[4] + S2[1:15,16:30] * lambda[5] + S2[1:15,31:45] * lambda[6]);
+// prior for te(temp,month):seriesDiatoms...
+b_raw[32:46] ~ multi_normal_prec(zero[32:46],S3[1:15,1:15] * lambda[7] + S3[1:15,16:30] * lambda[8] + S3[1:15,31:45] * lambda[9]);
+// prior for te(temp,month):seriesGreens...
+b_raw[47:61] ~ multi_normal_prec(zero[47:61],S4[1:15,1:15] * lambda[10] + S4[1:15,16:30] * lambda[11] + S4[1:15,31:45] * lambda[12]);
+// prior for te(temp,month):seriesOther.algae...
+b_raw[62:76] ~ multi_normal_prec(zero[62:76],S5[1:15,1:15] * lambda[13] + S5[1:15,16:30] * lambda[14] + S5[1:15,31:45] * lambda[15]);
+// prior for te(temp,month):seriesUnicells...
+b_raw[77:91] ~ multi_normal_prec(zero[77:91],S6[1:15,1:15] * lambda[16] + S6[1:15,16:30] * lambda[17] + S6[1:15,31:45] * lambda[18]);
+// priors for smoothing parameters
+lambda ~ normal(5, 30);
+// priors for observation error parameters
+sigma_obs ~ student_t(3, 0, 2.5);
+{
+// likelihood functions
+vector[n_nonmissing] flat_sigma_obs;
+flat_sigma_obs = rep_each(sigma_obs, n)[obs_ind];
+flat_ys ~ normal_id_glm(flat_xs,
+0.0,b,
+flat_sigma_obs);
+}
+}
+generated quantities {
+vector[total_obs] eta;
+matrix[n, n_series] sigma_obs_vec;
+matrix[n, n_series] mus;
+vector[n_sp] rho;
+array[n, n_series] real ypred;
+rho = log(lambda);
+// posterior predictions
+eta = X * b;
+for (s in 1:n_series) {
+sigma_obs_vec[1:n,s] = rep_vector(sigma_obs[s], n);
+}
+for(s in 1:n_series){
+mus[1:n, s] = eta[ytimes[1:n, s]];
+ypred[1:n, s] = normal_rng(mus[1:n, s], sigma_obs_vec[1:n, s]);
+}
+}</code></pre>
+</div>
+</div>
+<p>And finally, the model summary.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(notrend_mod, <span class="at">include_betas =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>GAM formula:
+y ~ te(temp, month, k = c(4, 4)) + te(temp, month, k = c(4, 4), 
+    by = series)
+
+Family:
+gaussian
+
+Link function:
+identity
+
+Trend model:
+None
+
+N series:
+5 
+
+N timepoints:
+120 
+
+Status:
+Fitted using Stan 
+4 chains, each with iter = 1000; warmup = 500; thin = 1 
+Total post-warmup draws = 2000
+
+
+Observation error parameter estimates:
+             2.5%  50% 97.5% Rhat n_eff
+sigma_obs[1] 0.76 0.87  1.00    1  2620
+sigma_obs[2] 0.58 0.66  0.76    1  2721
+sigma_obs[3] 0.80 0.92  1.10    1  2954
+sigma_obs[4] 0.66 0.75  0.87    1  2969
+sigma_obs[5] 0.63 0.73  0.85    1  2457
+
+GAM coefficient (beta) estimates:
+             2.5%    50% 97.5% Rhat n_eff
+(Intercept) -0.11 -0.044 0.023    1  2869
+
+Approximate significance of GAM smooths:
+                                  edf Ref.df Chi.sq p-value    
+te(temp,month)                   5.76     15  52.31 2.4e-05 ***
+te(temp,month):seriesBluegreens  2.86     15   3.98    1.00    
+te(temp,month):seriesDiatoms     3.34     15  56.02    0.11    
+te(temp,month):seriesGreens      2.69     15   1.01    1.00    
+te(temp,month):seriesOther.algae 1.34     15   2.83    1.00    
+te(temp,month):seriesUnicells    2.49     15   6.47    0.99    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Stan MCMC diagnostics:
+n_eff / iter looks reasonable for all parameters
+Rhat looks reasonable for all parameters
+0 of 2000 iterations ended with a divergence (0%)
+0 of 2000 iterations saturated the maximum tree depth of 10 (0%)
+E-FMI indicated no pathological behavior
+
+Samples were drawn using NUTS(diag_e) at Mon Feb 24 15:41:29 2025.
+For each parameter, n_eff is a crude measure of effective sample size,
+and Rhat is the potential scale reduction factor on split MCMC chains
+(at convergence, Rhat = 1)
+
+Use how_to_cite(notrend_mod) to get started describing this model</code></pre>
+</div>
+</div>
+</section>
+<section id="visualise-the-model" class="level4">
+<h4 class="anchored" data-anchor-id="visualise-the-model">Visualise the model</h4>
+<p>Let’s first plot the global smoother for all species over time:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_mvgam_smooth</span>(notrend_mod)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>This is the shared seasonal trend estimated across all groups at once. We can see that the model was able to capture the seasonal temporal structure of the plankton counts, based on temperature and time (months).</p>
+<p>We can also see how each group deviates from this global smooth (i.e.&nbsp;the partial effects):</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>gratia<span class="sc">::</span><span class="fu">draw</span>(notrend_mod<span class="sc">$</span>mgcv_model)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The colour shows us the strength of the partial effect of We can see that the model was able to capture some differences between each plankton group’s seasonal trend and the community’s global trend.</p>
+</section>
+<section id="inspect-the-model" class="level4">
+<h4 class="anchored" data-anchor-id="inspect-the-model">Inspect the model</h4>
+<p>A great test of how good a model is, is to see how well it forecasts data we already have. We split the data into a training set and a test set above. Let’s see how well the trained model predicts this test set!</p>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="cf">function</span>(x) <span class="fu">plot</span>(notrend_mod, <span class="at">type =</span> <span class="st">'forecast'</span>, <span class="at">series =</span> x))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Out of sample CRPS:
+6.76106172887687</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Out of sample CRPS:
+6.74284136216226</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Out of sample CRPS:
+4.14878078336935</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Out of sample CRPS:
+3.52581136668436</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Out of sample CRPS:
+2.83716936348026</code></pre>
+</div>
+<div class="cell quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-22-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-22-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-22-4.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-22-5.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<p>The points are the data points, and the red line and ribbon show the forecast trend and its credible intervals. Overall, these forecasts are okay, but not perfect - the data points are often within the credible intervals, and the forecasted trend seems to follow the seasonal trend pretty well. The model seems to understand that there is a strong seasonal trend in our observations, and is trying to predict it for each plankton group.</p>
+<p>But how’s the model doing, overall? Let’s plot the residuals:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="cf">function</span>(x) <span class="fu">plot_mvgam_resids</span>(notrend_mod, <span class="at">series =</span> x))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-23-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-23-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-23-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-23-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Looking at the Autocorrelation Function plots (ACF), we can see that there’s still a lot of temporal autocorrelation to deal with in the model. Let’s try to address some of this with a dynamic model!</p>
+</section>
+</section>
+<section id="dynamic-model" class="level3">
+<h3 class="anchored" data-anchor-id="dynamic-model">Dynamic model</h3>
+<p>Let’s now add a dynamic trend component to the model, to capture some of the variation that isn’t captured in our previous model.</p>
+<p>You can specify many kinds of dynamic trends with <code>mvgam</code>, but we won’t go into much detail here. We want to demonstrate the power of this approach, but you will need to select the dynamic trend model that works best for you. Here, we will use a Gaussian Process to model temporal autocorrelation in our data, which can specified as <code>GP</code> in <code>mvgam</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>gptrend_mod <span class="ot">&lt;-</span> <span class="fu">mvgam</span>(<span class="at">formula=</span>  </span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>                        y <span class="sc">~</span> </span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>                        <span class="fu">te</span>(temp, month, <span class="at">k =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>)) <span class="sc">+</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>                        <span class="fu">te</span>(temp, month, <span class="at">k =</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">4</span>), <span class="at">by =</span> series),</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>                      </span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># latent trend model</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># setting to order 1, meaning the autocorrelation is assumed to be 1 time step.</span></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>                      <span class="at">trend_model =</span> <span class="st">"GP"</span>,  </span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>                      </span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># use dynamic factors to estimate the latent trends</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>                      <span class="at">use_lv =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>                      </span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># observation family</span></span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>                      <span class="at">family =</span> <span class="fu">gaussian</span>(),</span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>                      </span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># our long-format datasets</span></span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>                      <span class="at">data =</span> plankton_train,</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>                      <span class="at">newdata =</span> plankton_test,</span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>                      </span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># use reduced samples for inclusion in tutorial data</span></span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>                      <span class="at">samples =</span> <span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="inspect-the-model-1" class="level4">
+<h4 class="anchored" data-anchor-id="inspect-the-model-1">Inspect the model</h4>
+<p>This workshop is only a quick glimpse of how to build a Bayesian model. If you want to learn more about how to inspect your model and understand how “good” it is, please check out: <a href="https://www.bayesrulesbook.com/chapter-10">Bayes Rules! An Introduction to Applied Bayesian Modeling, Chapter 10: Evaluating Regression Models</a>.</p>
+<p>Posterior predictive checks are one way to investigate a Bayesian model’s ability to make unbiased predictions. In this check, we’ll be measuring the posterior prediction error of our model - in other words, how close are our model predictions to the expected value of Y?</p>
+<p>These plots compare the observed data (solid black line) to the posterior predictions drawn from the fitted model (red line and credible interval ribbons). If our model is unbiased, these two lines should match pretty well. If there is a bias, we would see that the model predictions are very different from the black solid line.</p>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">ppc</span>(gptrend_mod, <span class="at">series =</span> x, <span class="at">type =</span> <span class="st">'density'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-27-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-27-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-27-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-27-4.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-27-5.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<p>These plots are pretty encouraging - our model isn’t generating biased predictions compared to the observation data (black line). Our model is doing a pretty good job!</p>
+<p>Let’s check out the model summary - how does it differ from the model without the dynamic factors?</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(gptrend_mod, <span class="at">include_betas =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>GAM formula:
+y ~ te(temp, month, k = c(4, 4)) + te(temp, month, k = c(4, 4), 
+    by = series)
+
+Family:
+gaussian
+
+Link function:
+identity
+
+Trend model:
+GP
+
+N latent factors:
+2 
+
+N series:
+5 
+
+N timepoints:
+120 
+
+Status:
+Fitted using Stan 
+4 chains, each with iter = 600; warmup = 500; thin = 1 
+Total post-warmup draws = 400
+
+
+Observation error parameter estimates:
+             2.5%  50% 97.5% Rhat n_eff
+sigma_obs[1] 0.36 0.42  0.48 1.00   568
+sigma_obs[2] 0.55 0.62  0.72 1.01   390
+sigma_obs[3] 0.79 0.91  1.10 1.00   595
+sigma_obs[4] 0.62 0.71  0.80 1.00   600
+sigma_obs[5] 0.52 0.61  0.71 1.00   499
+
+GAM coefficient (beta) estimates:
+             2.5%    50% 97.5% Rhat n_eff
+(Intercept) -0.16 -0.057 0.042 1.01   528
+
+Approximate significance of GAM smooths:
+                                   edf Ref.df Chi.sq p-value  
+te(temp,month)                   4.692     15  30.53   0.045 *
+te(temp,month):seriesBluegreens  2.751     15   9.26   0.940  
+te(temp,month):seriesDiatoms     3.755     15  50.18   0.201  
+te(temp,month):seriesGreens      2.241     15   0.79   1.000  
+te(temp,month):seriesOther.algae 3.877     15  10.41   0.906  
+te(temp,month):seriesUnicells    0.933     15  16.65   0.984  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Latent trend length scale (rho) estimates:
+          2.5% 50% 97.5% Rhat n_eff
+rho_gp[1]  2.1 4.6   8.8 1.01   294
+rho_gp[2]  1.4 4.3  24.0 1.02   188</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Supplying trend_model as a character string is deprecated
+Please use the dedicated functions (i.e. RW() or ZMVN()) instead
+This warning is displayed once per session.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Stan MCMC diagnostics:
+n_eff / iter looks reasonable for all parameters
+Rhats above 1.05 found for 24 parameters
+ *Diagnose further to investigate why the chains have not mixed
+0 of 400 iterations ended with a divergence (0%)
+0 of 400 iterations saturated the maximum tree depth of 10 (0%)
+E-FMI indicated no pathological behavior
+
+Samples were drawn using NUTS(diag_e) at Thu Feb 27 23:14:09 2025.
+For each parameter, n_eff is a crude measure of effective sample size,
+and Rhat is the potential scale reduction factor on split MCMC chains
+(at convergence, Rhat = 1)
+
+Use how_to_cite(gptrend_mod) to get started describing this model</code></pre>
+</div>
+</div>
+</section>
+<section id="visualise-the-model-1" class="level4">
+<h4 class="anchored" data-anchor-id="visualise-the-model-1">Visualise the model</h4>
+<p>Plot the global smoother for all species over time:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_mvgam_smooth</span>(gptrend_mod)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-29-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>This is the shared temporal trend estimated across all species at once. We can see that, overall, species’ biomassess declined during this time period.</p>
+<p>Plot the species’ estimated trends:</p>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="cf">function</span>(x) <span class="fu">plot_mvgam_trend</span>(gptrend_mod, <span class="at">series =</span> x))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-30-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-30-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-30-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-30-4.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img src="index_files/figure-html/unnamed-chunk-30-5.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</div>
+<p>And, importantly, let’s have a look at the dynamic factors estimated by the model to capture temporal dynamics in our response data:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(gptrend_mod, <span class="at">type =</span> <span class="st">'factors'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>These are the famous dynamic latent variables we’ve been talking about. You can see that they are capturing some of the unexplained temporal variation in our model. The model actually makes a bunch of these, and penalized them harshly to make latent variables that have a high explanatory power. This is the result!</p>
+<section id="partial-effects" class="level5">
+<h5 class="anchored" data-anchor-id="partial-effects">Partial effects</h5>
+<p>We can plot the partial effect of each variable we included in our model, to understand how they contribute to the overall model.</p>
+<p>Let’s start with the partial effect of temperature on plankton counts across groups:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_predictions</span>(gptrend_mod, <span class="at">condition =</span> <span class="fu">c</span>(<span class="st">"temp"</span>), <span class="at">conf_level =</span> <span class="fl">0.9</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-32-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Next, the partial effect of seasonality (here, months) on plankton counts across groups:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_predictions</span>(gptrend_mod, <span class="at">condition =</span> <span class="fu">c</span>(<span class="st">"month"</span>), <span class="at">conf_level =</span> <span class="fl">0.9</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-33-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>And finally, the effect of different plankton groups on the model:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_predictions</span>(gptrend_mod, <span class="at">condition =</span> <span class="fu">c</span>(<span class="st">"series"</span>), <span class="at">conf_level =</span> <span class="fl">0.9</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-34-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="calculate-the-rate-of-change-in-plankton-counts" class="level4">
+<h4 class="anchored" data-anchor-id="calculate-the-rate-of-change-in-plankton-counts">Calculate the rate of change in plankton counts</h4>
+<p>We can add each group’s estimated rate of change in abundance through time to these plots. Think of this as the slope of their estimated trend at each time point - this can give us an idea of the rate at which some groups declined or grew during the time series. If the derivative trend is centred on the zero line, the response variable (here, counts) were fluctuating around their mean abundance rather than declining or growing in a consistent way through time.</p>
+<p>As an example, let’s look at the blue-green algae trend, where the first panel is the estimated trend of the blue-green algae counts through time, and the bottom panel is the rate of change in these counts over time. In the second panel, negative values mean there was a decline in counts, and positive values mean there was an increase in counts. This can be very useful to calculate population growth rates through time:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_mvgam_trend</span>(gptrend_mod, <span class="at">series =</span> <span class="dv">1</span>, <span class="at">derivatives =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-35-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>It seems that these blue-green algae were pretty stable in the beginning of the time series, then declined slightly, then declined quickly around time step 100. The counts then increaased after this point.</p>
+<p>We made a slightly “hacked” version of this function to extract the derivatives:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"saved-objects/custom-function.R"</span>))</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>derivs <span class="ot">=</span> <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="cf">function</span>(x) <span class="fu">plot_mvgam_trend_custom</span>(gptrend_mod, <span class="at">series =</span> x, <span class="at">derivatives =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(derivs) <span class="ot">=</span> gptrend_mod<span class="sc">$</span>obs_data<span class="sc">$</span>series <span class="sc">|&gt;</span> <span class="fu">levels</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s look at a histogram of the derivatives to get an idea of how this group’s counts changed over time, on average:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="co"># reformatting the data for easier plotting</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">=</span> <span class="fu">lapply</span>(derivs, <span class="cf">function</span>(x) x[,<span class="sc">-</span><span class="dv">1</span>]) <span class="sc">|&gt;</span> </span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lapply</span>(as.data.frame) <span class="sc">|&gt;</span></span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lapply</span>(pivot_longer, <span class="at">cols =</span> <span class="fu">everything</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(<span class="at">.id =</span> <span class="st">"Group"</span>)</span>
+<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a><span class="co"># make a histogram of rates of changes in counts for each plankton group</span></span>
+<span id="cb44-8"><a href="#cb44-8" aria-hidden="true" tabindex="-1"></a>(<span class="at">plot_trenddensity =</span> </span>
+<span id="cb44-9"><a href="#cb44-9" aria-hidden="true" tabindex="-1"></a>   <span class="fu">ggplot</span>(<span class="at">data =</span> df) <span class="sc">+</span></span>
+<span id="cb44-10"><a href="#cb44-10" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_histogram</span>(<span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">fill =</span> <span class="fu">after_stat</span>(x)), </span>
+<span id="cb44-11"><a href="#cb44-11" aria-hidden="true" tabindex="-1"></a>                  <span class="at">col =</span> <span class="st">"black"</span>, <span class="at">linewidth =</span> .<span class="dv">2</span>, <span class="at">bins =</span> <span class="dv">19</span>) <span class="sc">+</span> </span>
+<span id="cb44-12"><a href="#cb44-12" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(df<span class="sc">$</span>value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">+</span></span>
+<span id="cb44-13"><a href="#cb44-13" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(df<span class="sc">$</span>value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">-</span> <span class="fu">sd</span>(df<span class="sc">$</span>value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">lty =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb44-14"><a href="#cb44-14" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(df<span class="sc">$</span>value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span> <span class="fu">sd</span>(df<span class="sc">$</span>value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">lty =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb44-15"><a href="#cb44-15" aria-hidden="true" tabindex="-1"></a>   <span class="fu">theme</span>(<span class="at">panel.grid.major.x =</span> <span class="fu">element_line</span>()) <span class="sc">+</span></span>
+<span id="cb44-16"><a href="#cb44-16" aria-hidden="true" tabindex="-1"></a>   <span class="fu">scale_y_sqrt</span>() <span class="sc">+</span></span>
+<span id="cb44-17"><a href="#cb44-17" aria-hidden="true" tabindex="-1"></a>   <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Rate of change"</span>, </span>
+<span id="cb44-18"><a href="#cb44-18" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="st">"Frequency"</span>, </span>
+<span id="cb44-19"><a href="#cb44-19" aria-hidden="true" tabindex="-1"></a>        <span class="at">fill =</span> <span class="st">"Rate of change"</span>) <span class="sc">+</span></span>
+<span id="cb44-20"><a href="#cb44-20" aria-hidden="true" tabindex="-1"></a>   <span class="fu">scale_fill_distiller</span>(<span class="at">palette =</span> <span class="st">"RdYlGn"</span>, </span>
+<span id="cb44-21"><a href="#cb44-21" aria-hidden="true" tabindex="-1"></a>                        <span class="at">direction =</span> <span class="dv">1</span>, </span>
+<span id="cb44-22"><a href="#cb44-22" aria-hidden="true" tabindex="-1"></a>                        <span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">4</span>,.<span class="dv">4</span>)) <span class="sc">+</span></span>
+<span id="cb44-23"><a href="#cb44-23" aria-hidden="true" tabindex="-1"></a>   <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">4</span>, .<span class="dv">4</span>))) <span class="sc">+</span></span>
+<span id="cb44-24"><a href="#cb44-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>Group, <span class="at">ncol =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb44-25"><a href="#cb44-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-39-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The median of the distribution of rates of change is ~0 for all the groups - but does this mean they didn’t vary throughout the time series? Not at all! Look at the difference in the spread of rates of change between Bluegreens and the other groups. Bluegreens went through several periods of large growth (green) and of large declines (red), while Diatoms and Greens varied relatively little (all of their rates of change are at or close to 0). If you scroll back up to see the predicted trends for each group, do these histograms make sense to you?</p>
+</section>
+<section id="species-correlations" class="level4">
+<h4 class="anchored" data-anchor-id="species-correlations">Species correlations</h4>
+<p>One way to investigate community dynamics is to check out the correlations between plankton groups. These correlations are captured with the dynamic model, which estimates unmeasured temporal processes in our data.</p>
+<p>Let’s calculate and plot species’ temporal correlations and plot them as a heatmap:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the correlations from the latent trend model</span></span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>species_correlations <span class="ot">=</span> <span class="fu">lv_correlations</span>(gptrend_mod)</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare the matrix for plotting</span></span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>toplot <span class="ot">=</span> species_correlations<span class="sc">$</span>mean_correlations</span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(toplot) <span class="ot">=</span> <span class="fu">gsub</span>(<span class="st">"_"</span>, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, stringr<span class="sc">::</span><span class="fu">str_to_sentence</span>(<span class="fu">colnames</span>(toplot)))</span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(toplot) <span class="ot">=</span> <span class="fu">gsub</span>(<span class="st">"_"</span>, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, stringr<span class="sc">::</span><span class="fu">str_to_sentence</span>(<span class="fu">rownames</span>(toplot)))</span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a><span class="co"># plot as a heatmap</span></span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>corrplot<span class="sc">::</span><span class="fu">corrplot</span>(toplot, </span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>                   <span class="at">type =</span> <span class="st">"lower"</span>,</span>
+<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a>                   <span class="at">method =</span> <span class="st">"color"</span>, </span>
+<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a>                   <span class="at">tl.cex =</span> <span class="dv">1</span>, <span class="at">cl.cex =</span> <span class="dv">1</span>, <span class="at">tl.col =</span> <span class="st">"black"</span>, <span class="at">font =</span> <span class="dv">3</span>,)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-40-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="model-comparison" class="level3">
+<h3 class="anchored" data-anchor-id="model-comparison">Model comparison</h3>
+<p>So, which model is best?</p>
+<p>We will use leave-one-out comparison to compare the two models we just built: <code>notrend_mod</code> which does not have a dynamic trend, and <code>gptrend</code> which includes an autoregressive latent trend model.</p>
+<p>This workshop isn’t really about model comparison, so we will just use this approach as an example, but there are other ways you could compare these models.</p>
+<p>One way is to compare the predictive performance of the models on new data using a metric of comparison like expected log pointwise predictive density (ELPD).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>mvgam<span class="sc">::</span><span class="fu">loo_compare</span>(notrend_mod, gptrend_mod,</span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">model_names =</span> <span class="fu">c</span>(<span class="st">"No trend"</span>, <span class="st">"Dynamic trend"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              elpd_diff se_diff
+Dynamic trend    0.0       0.0 
+No trend      -101.6      11.7 </code></pre>
+</div>
+</div>
+<p>The dynamic trend model performs better than the model with no trend (here, we want high - more positive- values for elpd_dif).</p>
+<p>Another way is to consider the ecological processes that influence our response variable. Which model do you think does a better job of representing the factors that cause plankton counts to vary through time?</p>
+</section>
+</section>
+</section>
+<section id="wrap-up" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Wrap up</h1>
+<p>We hope you’ve enjoyed this short tutorial on hierarchical generalized additive models with <code>mgcv</code> and <code>mvgam</code>.</p>
+<p>At the end of this tutorial, we hope you now feel you understand how a hierarchical model works, and how it can be used to capture nonlinear effects. The R packages <code>mgcv</code> and <code>mvgam</code> packages are great tools to build and fit hierarchical models!</p>
+<p>We also covered dynamic modelling, and how latent variables can be used to capture dynamic processes like temporal or spatial autocorrelation. Can you use latent variables to explain variation in your own models?</p>
+</section>
+<section id="thank-you" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Thank you</h1>
+<p>Thank you to BIOS2 and Gracielle Higino, Andrew Macdonald, and Kim Gauthier-Schampaert for supporting this workshop. Special thanks to Nicholas J. Clark for helpful suggestions and for providing much of the material we used to build this workshop.</p>
+<p>If you’re interested in talking more about these models, <a href="https://bios2.usherbrooke.ca/2025/02/21/hgams-working-group-community-calls/">please join our community calls</a> during March and April 2025! We welcome anyone interested in GAMs, computational ecology, or eager to learn more about HGAMs to participate in the following sessions:</p>
+<ul>
+<li><p><strong>Temporal Ecology with HGAMs</strong><br>
+When: March 7, 2025 at 1:30 PM (EST)<br>
+Registration:&nbsp;<a href="https://us02web.zoom.us/meeting/register/eocqFUC7QZG9HqydWb2Lsw#/registration" class="uri">https://us02web.zoom.us/meeting/register/eocqFUC7QZG9HqydWb2Lsw#/registration</a></p></li>
+<li><p><strong>Spatial Ecology with HGAMs</strong><br>
+When: March 14, 2025 at 1:30 PM (EST)<br>
+Registration:&nbsp;<a href="https://us02web.zoom.us/meeting/register/BAdUd6hKSDmzG_w4hgbgrQ#/registration" class="uri">https://us02web.zoom.us/meeting/register/BAdUd6hKSDmzG_w4hgbgrQ#/registration</a></p></li>
+<li><p><strong>Behavioural Ecology with HGAMs</strong><br>
+When: March 24, 2025 at 1:30 PM (EST)<br>
+Registration:&nbsp;<a href="https://us02web.zoom.us/meeting/register/taVdATjWRw2uhzYTry2bHA#/registration" class="uri">https://us02web.zoom.us/meeting/register/taVdATjWRw2uhzYTry2bHA#/registration</a></p></li>
+</ul>
+<p>Each discussion will focus on the outstanding ecological questions that we could answer with HGAMs, highlighting a wide array of potential applications for specific types of ecological and evolutionary data. Join us in thinking about how we could use HGAMs to push ecological research forward!</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
