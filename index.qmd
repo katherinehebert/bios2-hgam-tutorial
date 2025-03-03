@@ -196,31 +196,39 @@ ggplot(data = plankton_data, aes(x = time)) +
 
 ------------------------------------------------------------------------
 
-## Part 1: Hierarchical Generalized Additive Models (HGAMs)
+# Part 1: Hierarchical Generalized Additive Models (HGAMs)
 
-Diatoms data set. \*I want to illustrate nonlinearity for juste one series.
+## A (very) brief introduction to GAMs
+
+-   Definition: Generalized additive models (GAMs) are models that allow us enough flexibility to depict nonlinear relationships, without being so "black-boxy" that they become so hard to interpret. They offer a middle ground between simple and complex models.
+-   Why are they relevant in ecology? A lot of relationships in ecology are inherently nonlinear and GAMs are particularly useful in capturing these more complex relationships.
+
+## Nonlinear relationship
+
+If we plot the data for one of the groups (diatoms), we see that that relationship between abundance and time is not linear.
 
 ```{r}
-# subset
 diatoms_data <- plankton_data[plankton_data$series == "Diatoms", ]
-```
-
-Data points.
-
-```{r}
 ggplot(diatoms_data, aes(x = time, y = y)) +
   geom_point() +
   geom_line(aes(y = y), lwd = .4) +
-  labs(title = "Diatoms Data Points", x = "Year", y = "Y Value") +
+  labs(title = "Diatoms Data Points", x = "Time", y = "Abundance (z-score)") +
   theme_minimal()
 ```
 
-Linear model
+
+
+## Linear model on diatoms data
+
+If we fit a linear model on this data, we can come to the same conclusion
 
 ```{r}
 diatoms_lm <- lm(y ~ time, data = diatoms_data)
+```
 
+We can plot the relationship between time and abundance using ggplot:
 
+```{r}
 ggplot(diatoms_data, aes(x = time, y = y)) +
   geom_point(color = "black") +  # Scatter points
   geom_smooth(method = "lm", color = "blue1", fill = "lightgray", se = TRUE) +  # Regression line
@@ -230,26 +238,280 @@ ggplot(diatoms_data, aes(x = time, y = y)) +
   theme_minimal()
 ```
 
-GAM
+
+
+## GAM on diatoms data
+
+Now, if we fit a GAM on our data
 
 ```{r}
 # model
 diatoms_gam <- gam(y ~ s(time, bs = "cs", k = 50), data = diatoms_data)
-
-# graph
-gratia::draw(diatoms_gam)
-
 ```
+
+We immediately see a better fit, as the spline seems to follow our data points more accurately.
 
 ```{r}
-
-
-
+# graph
+gratia::draw(diatoms_gam, rug = FALSE)
 ```
 
 
 
-# Block 2 - Digging deeper with Dynamic (and Hierarchical!) Generalized Additive Models
+## What are splines?
+
+-   Splines (also known as smooths or smoothers) are a type of function used to estimate nonlinear relationships between covariates and the response variable.
+-   Splines are the sum of simpler functions, called basis functions.
+
+![[Noam Ross - GAMs in R course, chapter 1.](https://noamross.github.io/gams-in-r-course/chapter1)](basis_functions.jpeg){fig-align="center"}
+
+
+
+## What determines how "curvy" splines are?
+
+-   In the GAM world we have a specific term for this: ✨*wiggliness*✨
+
+-   Wiggliness refers to the degree of flexibility in the model's fitted function. It describes how much the model can fluctuate to fit the data.
+
+-   The number of basis functions (knots) we set our model to have is the maximum wiggliness we expect our relationship to have.
+
+![[Nicholas Clark - Temporal autocorrelation in GAMs and the mvgam package](https://ecogambler.netlify.app/blog/autocorrelated-gams/)](basis_weights.gif)
+
+
+
+## Wiggliness
+
+-   The model penalizes the wiggliness (penalized log likelihood), which should shrink down our wiggliness to the right amount to match the patterns in the data.
+
+-   If the wiggliness is too high, we risk overfitting, which results in a model that is less generalizable and more specific to this exact set of data.
+
+-   **wiggliness** **≠ shape of the curve**
+
+
+
+## What is a hierarchy?
+
+### What is a hierarchy in biology?
+
+-   It refers to the organization of organisms into levels
+
+-   You're probably familiar with the taxonomic hierarchy
+
+![](taxo_hier.jpg){fig-align="center"}
+
+We find that nature often tends to "organize" itself into hierarchies.
+
+
+
+### What is a hierarchy in data?
+
+We find hierarchies in data when a data item is linked to another data item by a hierarchical relationship, where we would qualify one data item to be the "parent" of the other.
+
+```{r}
+head(plankton_data) 
+```
+
+-   "month" is nested in "year"
+
+-   "series" = grouping variable with 5 levels
+
+
+
+### What is a hierarchical model (HM)?
+
+-   Hierarchical generalised linear models, or Hierarchical models (HM), are used to estimate linear relationships between predictors and a response variable, but impose a structure where the predictors are organized into groups.
+
+-   The relationship between predictors and response variable may differ across groups.
+
+Pedersen et al. (2019)
+
+
+
+## Now that we have seen GAMs and HMs... What are HGAMs?
+
+
+
+## HGAM
+
+-   A hierarchical generalized additive model, or HGAM, is the integration of GAMS and HMs into one model. HGAMs enable us to estimate nonlinear relationships between predictors and a response variable when at least one of the predictors is a grouping variable.
+
+-   We’ve previously identified hierarchies in the data; now, how do we incorporate them into our models? We represent these hierarchies using smooth functions in our equations.
+
+
+
+### HGAM equation with mgcv
+
+```{r}
+# gam(y ~ s(time, k = k_number_time_steps, bs = "cs") +
+#      s(time, series, k = number_series, bs = "fs", m = 2),
+#      family = "gaussian"
+#      data = plankton_data
+#      method = "REML")
+```
+
+Let's break it down.
+
+
+
+### Smooth function
+
+s(time, k = k_number_time_steps, bs = "cs")
+
+s() = smooth function
+
+k = number of knots ; can be the number of time steps or any fraction of that number
+
+bs = type of basis functions
+
+
+
+### Types of basis functions
+
+-   Thin Plate Regression Splines ("tp" in mgcv): General purpose spline basis. If you do not have phenology in your data and your smooth only has one covariate = probably this type of basis functions. To learn more –\> [Wood (2003)](https://rss.onlinelibrary.wiley.com/doi/abs/10.1111/1467-9868.00374)
+
+-   Random Effect ("re"): Similar to random effect in mixed model. Creates an intercept per grouping level.
+
+-   Cyclic Cubic Regression Splines ("cs"): Useful to fit models with cyclic components or phenology.
+
+-   Tensor product ("te"): We use this to look at interaction between predictors if we believe it to have an impact on the relationship between the predictors and the response variable. *For example: the interaction of temperature and latitude on the abundance of a species of plant.*
+
+-   Factor Smoother ("fs"): Produces a smooth curve for each level of a single factor. This means that a model can be constructed with a **main effect plus factor level smooth deviations from that effect**.
+
+
+#### Factor smoother
+
+-   Global trend across all levels of a grouping variable
+
+-   Species-specific trends sharing the same wiggliness, but differing in shapes
+
+
+## Types of functional variations that can be fitted with HGAMs
+
+-   Based on [Pedersen et al. (2019)](https://peerj.com/articles/6876/)
+
+![](pedersenetal.jpg){fig-align="center" width="390"}
+
+
+## Types of functional variations that can be fitted with HGAMs
+
+-   5 models are discussed in the paper (G, GS, GI, S, and I)
+
+![From Hierarchical generalized adidtive models in ecology: an introduction with mgcv, by Pedersen et al. (2019)](fig4_pedersen_etal.jpg){fig-align="center" width="476"}
+
+
+
+## Let's try some of these on our data!
+
+**Model G: A single common smoother for all observations**
+
+```{r}
+modG <- gam(y ~                           # Abundance
+              
+            #  Global Smooth             
+            s(time, k = 60, bs = "cs") +  # k = 60, because number of time steps = 120 
+                                          # bs = "cs", because cyclic component in the data
+            
+            # Series as random effect    
+            s(series, k = 5, bs = "re"),  # k = 5, because number of series = 5
+                                          # bs = "re", to get a random effect
+            
+            method = "REML",               # Standard method for HGAMs
+            
+            family = "gaussian",
+            
+            data = plankton_data
+              
+            )
+```
+
+
+##  Let's look at it graphically
+
+```{r}
+gratia::draw(modG)
+```
+
+
+## Summary
+
+```{r}
+summary(modG)
+```
+
+Not the greatest fit!
+
+
+## Now, if we add a bit of complexity to the model...
+
+**Model GS: A global smoother plus group-level smoothers that have the same wiggliness.**
+
+```{r}
+modGS <- gam(y ~                           # Abundance
+              
+            #  Global Smooth             
+            s(time, k = 60, bs = "cs", m = 2) +  # k = 60, because number of time steps = 120 
+                                                 # bs = "cs", because cyclic component
+            
+            # Series as random effect    
+            s(time, series, k = 60, bs = "fs", m = 2),  # k = 5, because number of series = 5
+                                                        # bs = "fs", factor smoother
+            
+            method = "REML",                            # Standard method for HGAMs
+            
+            family = "gaussian",
+            
+            data = plankton_data
+              
+            )
+```
+
+
+##  Let's look at it graphically
+
+```{r}
+gratia::draw(modGS)
+```
+
+
+## Predictions with the marginal effects library 
+
+```{r}
+plot_predictions(modGS, 
+                 condition = c('time', 'series', 'series'),
+                 points = 0.5,
+                 rug = TRUE) +
+  theme(legend.position = 'none') +
+  labs(y = 'Abundance', x = 'Time')
+```
+
+We can see more clearly the type of predictions the model makes for each level.
+
+
+## Summary
+
+```{r}
+summary(modGS)
+```
+
+
+
+## But... Could get a better fit?
+
+-   Short answer: Probably!
+
+-   Longer answer: There's always a trade-off between a more complex model that account amount for more variations in the data, but that is prone to overfitting.
+
+-   However, these two models were pretty simple and we'll see in the next part of the training how we can get to another level of model complexity.
+
+
+
+## Model comparison
+
+-   We won't delve into model comparison here, as it falls outside the scope of this training. However, a few options are available for comparison, such as using AIC and evaluating predictive performance.
+
+--------------------------------------------------------------------------------
+
+# Part 2 - Digging deeper with Dynamic (and Hierarchical!) Generalized Additive Models
 
 Above, we modelled how plankton counts fluctuated through time with a hierarchical structure to understand how different groups vary through time. We noticed a strong seasonal pattern in these fluctuations.
 
